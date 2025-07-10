@@ -63,10 +63,10 @@
             :icon="slot.available ? 'check_circle' : 'cancel'"
           >
             <q-tooltip v-if="!slot.available">
-              Fully booked ({{ slot.totalSlots - slot.availableSlots }}/{{ slot.totalSlots }} slots taken)
+              Fully booked ({{ (slot.totalSlots || 0) - (slot.availableSlots || 0) }}/{{ slot.totalSlots || 0 }} slots taken)
             </q-tooltip>
             <q-tooltip v-else>
-              {{ slot.availableSlots }} of {{ slot.totalSlots }} slots available
+              {{ slot.availableSlots || 0 }} of {{ slot.totalSlots || 0 }} slots available
             </q-tooltip>
           </q-btn>
         </div>

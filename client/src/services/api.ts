@@ -119,10 +119,10 @@ export const apiService = {
         return response.data;
       } catch (localError) {
         console.warn('Local availability failed, trying LEAP sync:', localError);
-        // Fallback to LEAP sync endpoint
-        const leapParams = { date };
-        if (timeSlots) leapParams.timeSlots = timeSlots.join(',');
-        if (userId) leapParams.userId = userId;
+      // Fallback to LEAP sync endpoint
+      const leapParams: any = { date };
+      if (timeSlots) leapParams.timeSlots = timeSlots.join(',');
+      if (userId) leapParams.userId = userId;
         
         const response = await api.get('/leap-sync/availability', { params: leapParams });
         console.log('API Service - LEAP availability response:', response.data);
@@ -217,10 +217,6 @@ export const apiService = {
   },
 
   // Local appointment management
-  async createAppointment(appointmentData: any): Promise<ApiResponse<any>> {
-    const response = await api.post('/appointments', appointmentData);
-    return response.data;
-  },
 
   async getAppointmentById(id: string): Promise<ApiResponse<any>> {
     const response = await api.get(`/appointments/${id}`);
