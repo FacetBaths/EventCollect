@@ -14,7 +14,7 @@
         />
 
         <q-toolbar-title class="flex items-center">
-<img src="/Logo_V2_Gradient7_CTC.png" alt="EventCollect Logo" class="logo q-mr-md" loading="lazy" />
+        img src="https://raw.githubusercontent.com/FacetBaths/EventCollect/main/client/public/assets/Logo_V2_Gradient7_CTC.png" alt="EventCollect Logo" class="logo q-mr-md" loading="lazy" /
           <span class="text-h5 text-weight-medium text-primary">EventCollect</span>
         </q-toolbar-title>
 
