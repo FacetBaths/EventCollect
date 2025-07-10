@@ -1,0 +1,39 @@
+// Quasar SCSS (& Sass) Variables
+// --------------------------------------------------
+// To customize the look and feel of this app, you can override
+// the Sass/SCSS variables found in Quasar's source Sass/SCSS files.
+
+// Check documentation for full list of Quasar variables
+
+// Your own variables (that are declared here) and Quasar's own
+// ones will be available out of the box in your .vue/.scss/.sass files
+
+// Custom EventCollect Brand Colors
+$primary: #9945ff; // Purple
+$secondary: #14f195; // Green
+$accent: #7c7c7c; // Gray
+
+$dark: #1d1d1d;
+$dark-page: #121212;
+
+$positive: #14f195; // Use brand green for positive
+$negative: #ff4757; // Red for negative
+$info: #9945ff; // Use brand purple for info
+$warning: #ffa726; // Orange for warning
+
+// Typography
+$typography-font-family: 'Exo 2', sans-serif;
+
+// iPad-optimized sizing
+$h1-size: 2.5rem;
+$h2-size: 2rem;
+$h3-size: 1.75rem;
+$h4-size: 1.5rem;
+$h5-size: 1.25rem;
+$h6-size: 1rem;
+
+// Custom variables for iPad layout
+$form-field-height: 56px;
+$button-height: 48px;
+$card-padding: 24px;
+$mobile-breakpoint: 768px;
