@@ -1,4 +1,4 @@
-import axios, { AxiosResponse } from "axios";
+import axios, { AxiosResponse, AxiosInstance } from "axios";
 import { logger } from "../utils/logger";
 import { appointmentService } from "./appointmentService";
 
@@ -97,7 +97,7 @@ export class LeapService {
 
     // Add request interceptor for logging
     this.apiClient.interceptors.request.use(
-      (config) => {
+      (config: any) => {
         logger.debug(
           `LEAP API Request: ${config.method?.toUpperCase()} ${config.url}`,
           {
@@ -108,7 +108,7 @@ export class LeapService {
         );
         return config;
       },
-      (error) => {
+      (error: any) => {
         logger.error("LEAP API Request Error:", error);
         return Promise.reject(error);
       },
@@ -116,7 +116,7 @@ export class LeapService {
 
     // Add response interceptor for logging
     this.apiClient.interceptors.response.use(
-      (response) => {
+      (response: any) => {
         logger.debug(
           `LEAP API Response: ${response.status} ${response.config.url}`,
           {
@@ -125,7 +125,7 @@ export class LeapService {
         );
         return response;
       },
-      (error) => {
+      (error: any) => {
         logger.error("LEAP API Response Error:", {
           status: error.response?.status,
           data: error.response?.data,

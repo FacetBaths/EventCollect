@@ -66,7 +66,7 @@ export class AppointmentService {
       });
 
       // Check if the time slot is available
-      const isAvailable = await Appointment.isTimeSlotAvailable(appointmentData.date, appointmentData.timeSlot);
+      const isAvailable = await (Appointment as any).isTimeSlotAvailable(appointmentData.date, appointmentData.timeSlot);
       
       if (!isAvailable) {
         throw new Error(`Time slot ${appointmentData.timeSlot} on ${appointmentData.date.toDateString()} is fully booked`);
@@ -126,7 +126,7 @@ export class AppointmentService {
 
         // Only check availability if actually changing the slot
         if (newDate.getTime() !== currentAppointment.date.getTime() || newTimeSlot !== currentAppointment.timeSlot) {
-          const isAvailable = await Appointment.isTimeSlotAvailable(newDate, newTimeSlot);
+          const isAvailable = await (Appointment as any).isTimeSlotAvailable(newDate, newTimeSlot);
           if (!isAvailable) {
             throw new Error(`Time slot ${newTimeSlot} on ${newDate.toDateString()} is fully booked`);
           }
@@ -248,11 +248,11 @@ export class AppointmentService {
       while (currentDate <= query.endDate) {
         // Skip Sundays (day 0)
         if (currentDate.getDay() !== 0) {
-          const dayAvailability = await Appointment.getAvailabilityForDate(currentDate);
+          const dayAvailability = await (Appointment as any).getAvailabilityForDate(currentDate);
           
           // Filter by requested time slots if provided
           const filteredAvailability = query.timeSlots 
-            ? dayAvailability.filter(slot => query.timeSlots!.includes(slot.timeSlot))
+            ? dayAvailability.filter((slot: any) => query.timeSlots!.includes(slot.timeSlot))
             : dayAvailability;
 
           availabilityData.push({
@@ -260,8 +260,8 @@ export class AppointmentService {
             dateString: currentDate.toISOString().split('T')[0],
             dayOfWeek: currentDate.toLocaleDateString('en-US', { weekday: 'long' }),
             availability: filteredAvailability,
-            totalAvailable: filteredAvailability.reduce((sum, slot) => sum + slot.availableSlots, 0),
-            hasAvailability: filteredAvailability.some(slot => slot.available)
+            totalAvailable: filteredAvailability.reduce((sum: number, slot: any) => sum + slot.availableSlots, 0),
+            hasAvailability: filteredAvailability.some((slot: any) => slot.available)
           });
         }
         
@@ -286,15 +286,15 @@ export class AppointmentService {
     try {
       logger.info('Getting availability for date', { date });
 
-      const availability = await Appointment.getAvailabilityForDate(date);
+      const availability = await (Appointment as any).getAvailabilityForDate(date);
       
       return {
         date,
         dateString: date.toISOString().split('T')[0],
         dayOfWeek: date.toLocaleDateString('en-US', { weekday: 'long' }),
         availability,
-        totalAvailable: availability.reduce((sum, slot) => sum + slot.availableSlots, 0),
-        hasAvailability: availability.some(slot => slot.available)
+        totalAvailable: availability.reduce((sum: number, slot: any) => sum + slot.availableSlots, 0),
+        hasAvailability: availability.some((slot: any) => slot.available)
       };
     } catch (error: any) {
       logger.error('Failed to get availability for date', { 

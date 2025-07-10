@@ -183,7 +183,13 @@ appointmentSchema.virtual('formattedDate').get(function() {
 
 // Virtual for formatted time
 appointmentSchema.virtual('formattedDateTime').get(function() {
-  return `${this.formattedDate} at ${this.timeSlot}`;
+  const formattedDate = this.date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  return `${formattedDate} at ${this.timeSlot}`;
 });
 
 // Instance method to check if appointment is active
@@ -209,7 +215,7 @@ appointmentSchema.statics.getAvailabilityForDate = async function(date: Date) {
   
   // Build availability map
   const availability = timeSlots.map(timeSlot => {
-    const appointmentsInSlot = appointments.filter(apt => apt.timeSlot === timeSlot);
+    const appointmentsInSlot = appointments.filter((apt: any) => apt.timeSlot === timeSlot);
     return {
       timeSlot,
       available: appointmentsInSlot.length < 2, // Max 2 appointments per slot
