@@ -1,6 +1,5 @@
 [build]
 builder = "nixpacks"
-buildCommand = "cd server && npm cache clean --force && npm ci --no-optional && npm run build"
 
 [deploy]
 startCommand = "cd server && node dist/index.js"
@@ -10,4 +9,3 @@ restartPolicyType = "on_failure"
 
 [env]
 NODE_ENV = "production"
-NPM_CONFIG_CACHE = "/tmp/.npm"
