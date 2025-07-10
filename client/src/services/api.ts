@@ -2,7 +2,9 @@ import axios from 'axios';
 import type { LeadFormData } from '../types/temp-types';
 
 // API configuration
-const API_BASE_URL = '/api';
+const API_BASE_URL = process.env.NODE_ENV === 'development' 
+  ? '/api' 
+  : 'https://eventcollect-production.up.railway.app/api';
 
 // Create axios instance with default configuration
 const api = axios.create({
