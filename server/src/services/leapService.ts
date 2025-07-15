@@ -1048,7 +1048,7 @@ export class LeapService {
         email: leadData.email,
         phones: [
           {
-            number: leadData.phone.replace(/\D/g, ''), // Remove all non-digit characters
+            number: leadData.phone.replace(/\D/g, '').padStart(10, '0'), // Ensure minimum 10 digits
             label: "home"
           }
         ],
