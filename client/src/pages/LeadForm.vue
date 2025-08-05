@@ -66,6 +66,7 @@
             v-model="form.servicesOfInterest"
             @trade-ids-changed="onTradeIdsChanged"
             @work-type-ids-changed="onWorkTypeIdsChanged"
+            @division-id-changed="onDivisionIdChanged"
           />
 
           <SalesRepSelector
@@ -254,6 +255,11 @@ function onWorkTypeIdsChanged(workTypeIds: number[]) {
 function onSalesRepChanged(salesRepId: number | null) {
   selectedSalesRepId.value = salesRepId;
   console.log('Selected sales rep ID:', salesRepId);
+}
+
+function onDivisionIdChanged(divisionId: number | null) {
+  form.value.divisionId = divisionId || 6496; // Default to Renovation if null
+  console.log('Selected division ID:', divisionId);
 }
 
 function onAppointmentPreferenceSet(appointmentData: any) {

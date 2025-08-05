@@ -106,6 +106,7 @@ interface Emits {
   (e: 'update:modelValue', value: string[]): void;
   (e: 'trade-ids-changed', tradeIds: number[]): void;
   (e: 'work-type-ids-changed', workTypeIds: number[]): void;
+  (e: 'division-id-changed', divisionId: number | null): void;
 }
 
 const props = defineProps<Props>();
@@ -193,6 +194,22 @@ watch(trades, (newTrades) => {
     }
   }
 }, { immediate: true });
+
+// Watch for divisions loading and auto-select Renovation
+watch(divisions, (newDivisions) => {
+  if (newDivisions.length > 0 && selectedDivision.value === null) {
+    // Auto-select Renovation (ID: 6496) when divisions are loaded
+    const renovationDivision = newDivisions.find(division => division.id === 6496 || division.name === 'Renovation');
+    if (renovationDivision) {
+      selectedDivision.value = renovationDivision.id;
+    }
+  }
+}, { immediate: true });
+
+// Watch for division changes and emit updates
+watch(selectedDivision, (newDivisionId) => {
+  emit('division-id-changed', newDivisionId);
+});
 
 // Watch props changes
 watch(() => props.modelValue, (newValue) => {
