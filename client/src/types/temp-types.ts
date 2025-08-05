@@ -24,7 +24,7 @@ export interface LeadFormData {
     preferredDate: string;
     preferredTime: string;
     notes?: string;
-  };
+  } | undefined;
   eventName?: string;
   referredBy?: string; // Source/referrer (usually the event name)
   referred_by_type?: string; // LEAP CRM referral type (e.g., 'Event')

@@ -126,7 +126,7 @@
               <div class="text-subtitle2 q-mb-xs">Lead Saved Successfully!</div>
               <div class="text-caption">Lead ID: {{ savedLeadData._id }}</div>
               <div class="text-caption">Customer ID: {{ savedLeadData.leapCustomerId }}</div>
-              <div v-if="form.wantsAppointment && form.appointmentDetails.preferredDate" class="text-caption q-mt-sm">
+              <div v-if="form.wantsAppointment && form.appointmentDetails?.preferredDate" class="text-caption q-mt-sm">
                 Appointment Preference: {{ formatDate(form.appointmentDetails.preferredDate) }} at {{ form.appointmentDetails.preferredTime }}
               </div>
             </q-banner>
@@ -201,8 +201,15 @@ const isFormValid = computed(() => {
 });
 
 function formatDate(dateStr: string): string {
+  if (!dateStr) return '';
+  
   // Parse the date string manually to avoid timezone issues
-  const [year, month, day] = dateStr.split('-').map(Number);
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length !== 3) return dateStr;
+  
+  const [year, month, day] = parts;
+  if (!year || !month || !day) return dateStr;
+  
   const date = new Date(year, month - 1, day); // month is 0-indexed
   
   return date.toLocaleDateString('en-US', { 
@@ -261,7 +268,7 @@ async function submitForm() {
       salesRepId: selectedSalesRepId.value || undefined,
       // Include appointment details if provided
       wantsAppointment: form.value.wantsAppointment,
-      appointmentDetails: form.value.wantsAppointment ? form.value.appointmentDetails : undefined
+      appointmentDetails: form.value.wantsAppointment && form.value.appointmentDetails ? form.value.appointmentDetails : undefined
     };
     
     const response = await apiService.submitLead(formDataWithTrades);
