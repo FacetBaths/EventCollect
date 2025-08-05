@@ -197,11 +197,12 @@ const form = ref<LeadFormData>({
     preferredTime: '',
     notes: '',
   },
-  eventName: 'Web Form Submission', // Form submission type - stays constant
+  eventName: getEventName(), // Use actual event name or date fallback
   referredBy: getEventName(), // Actual event name or date fallback
   referred_by_type: 'Event',
   referred_by_id: 8,
   referred_by_note: getEventName(), // Same as referredBy
+  divisionId: 6496, // Default to Renovation division
 });
 
 const loading = ref(false);
@@ -355,11 +356,12 @@ function resetForm() {
       preferredTime: '',
       notes: '',
     },
-    eventName: 'Web Form Submission', // Form submission type - stays constant
+    eventName: getEventName(), // Use actual event name or date fallback
     referredBy: getEventName(), // Actual event name or date fallback
     referred_by_type: 'Event',
     referred_by_id: 8,
     referred_by_note: getEventName(), // Same as referredBy
+    divisionId: 6496, // Default to Renovation division
   };
 
   // Reset other form state
