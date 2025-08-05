@@ -26,6 +26,30 @@
       <q-space />
       <div class="text-caption">
         Showing {{ filteredLeads.length }} of {{ allLeads.length }} leads
+        <span v-if="!showAllEvents && eventStore.getCurrentEvent" class="text-grey-6">
+          (filtered by: {{ eventStore.getCurrentEvent.name }})
+        </span>
+        <span v-else-if="!showAllEvents && !eventStore.getCurrentEvent" class="text-grey-6">
+          (no active event - showing all)
+        </span>
+      </div>
+    </div>
+    
+    <!-- No Leads Message -->
+    <div v-if="!loading && allLeads.length === 0" class="text-center q-pa-xl">
+      <q-icon name="people" size="4rem" color="grey-5" />
+      <div class="text-h6 text-grey-6 q-mt-md">No leads found</div>
+      <div class="text-body2 text-grey-5 q-mt-sm">
+        Leads will appear here once they are submitted through the lead form.
+      </div>
+    </div>
+    
+    <!-- Filtered Leads Empty Message -->
+    <div v-else-if="!loading && filteredLeads.length === 0 && allLeads.length > 0" class="text-center q-pa-xl">
+      <q-icon name="filter_list" size="4rem" color="grey-5" />
+      <div class="text-h6 text-grey-6 q-mt-md">No leads match current filter</div>
+      <div class="text-body2 text-grey-5 q-mt-sm">
+        Try enabling "Show All Events" to see all {{ allLeads.length }} leads.
       </div>
     </div>
 
@@ -205,6 +229,7 @@ import { ref, onMounted, computed } from 'vue';
 import { apiService } from '../services/api';
 import { Notify } from 'quasar';
 import AppointmentScheduler from '../components/AppointmentScheduler.vue';
+import { useEventStore } from '../stores/event-store';
 
 interface Lead {
   _id: string;
@@ -226,11 +251,11 @@ const loading = ref(false);
 const syncingAll = ref(false);
 const savingLead = ref(false);
 const resyncAfterSave = ref(false);
-const showAllEvents = ref(false);
-const activeEventName = ref<string>('');
+const showAllEvents = ref(true); // Default to showing all events since we may not have an active event
 const editLeadDialog = ref(false);
 const appointmentDialog = ref(false);
 const selectedLead = ref<Lead | null>(null);
+const eventStore = useEventStore();
 
 const columns = [
   {
@@ -298,24 +323,20 @@ const filteredLeads = computed(() => {
   if (showAllEvents.value) {
     return allLeads.value;
   }
-  return allLeads.value.filter(lead => lead.eventName === activeEventName.value);
+  
+  // Filter by current event from store if one is selected
+  const currentEvent = eventStore.getCurrentEvent;
+  if (!currentEvent) {
+    return allLeads.value; // Show all leads if no current event
+  }
+  
+  return allLeads.value.filter(lead => lead.eventName === currentEvent.name);
 });
 
 onMounted(async () => {
-  await fetchActiveEvent();
   await fetchLeads();
 });
 
-async function fetchActiveEvent() {
-  try {
-    const response = await apiService.getActiveEvent();
-    if (response.success && response.data) {
-      activeEventName.value = response.data.name;
-    }
-  } catch (error) {
-    console.warn('Could not fetch active event');
-  }
-}
 
 async function fetchLeads() {
   loading.value = true;
