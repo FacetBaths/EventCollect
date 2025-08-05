@@ -130,14 +130,11 @@ const error = ref<string | null>(null);
 const calendarEvents = ref<any[]>([]);
 const selectedDate = ref(new Date().toISOString().substring(0, 10));
 
-// Time slots for each day (6 slots per day)
+// Time slots for each day (3 slots per day)
 const timeSlots = [
-  '9:00 AM',
-  '10:30 AM',
-  '12:00 PM',
-  '1:30 PM',
-  '3:00 PM',
-  '4:30 PM'
+  '10:00 AM',
+  '2:00 PM',
+  '5:00 PM'
 ];
 
 // Generate 4 weeks of Monday-Saturday schedules

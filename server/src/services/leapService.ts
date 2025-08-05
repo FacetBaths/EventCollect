@@ -334,7 +334,7 @@ export class LeapService {
    */
   async checkAppointmentAvailability(
     date: string,
-    timeSlots: string[] = ['9:00 AM', '10:30 AM', '12:00 PM', '1:30 PM', '3:00 PM', '4:30 PM'],
+    timeSlots: string[] = ['10:00 AM', '2:00 PM', '5:00 PM'],
     userId?: string,
   ): Promise<LeapApiResponse<any>> {
     try {
@@ -453,6 +453,8 @@ export class LeapService {
       const currentDay = today.getDay();
       let daysUntilMonday;
 
+      logger.debug(`DEBUG: Current date: ${today.toISOString()}, day of week: ${currentDay}`);
+
       if (currentDay === 0) { // Sunday
         daysUntilMonday = 1;
       } else if (currentDay === 1) { // Monday
@@ -461,7 +463,9 @@ export class LeapService {
         daysUntilMonday = 8 - currentDay;
       }
 
+      logger.debug(`DEBUG: Days until Monday: ${daysUntilMonday}`);
       nextMonday.setDate(today.getDate() + daysUntilMonday);
+      logger.debug(`DEBUG: Calculated next Monday: ${nextMonday.toISOString()}, day of week: ${nextMonday.getDay()}`);
 
       // Ensure we calculated a Monday
       logger.info(`Today is ${today.toDateString()} (day ${currentDay}), next Monday is ${nextMonday.toDateString()} (day ${nextMonday.getDay()})`);
@@ -482,6 +486,12 @@ export class LeapService {
         // Verify this is actually a Monday (should be, but let's be safe)
         if (searchDate.getDay() !== 1) {
           logger.warn(`Skipping non-Monday date ${dateString} (day ${searchDate.getDay()})`);
+          continue;
+        }
+        
+        // Extra safety check - never suggest Sundays
+        if (searchDate.getDay() === 0) {
+          logger.warn(`CRITICAL: Attempted to suggest Sunday ${dateString} - skipping!`);
           continue;
         }
 

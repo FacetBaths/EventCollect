@@ -61,12 +61,9 @@ const appointmentSchema = new Schema<IAppointment>(
       type: String,
       required: true,
       enum: [
-        "9:00 AM",
-        "10:30 AM", 
-        "12:00 PM",
-        "1:30 PM",
-        "3:00 PM",
-        "4:30 PM"
+        "10:00 AM",
+        "2:00 PM",
+        "5:00 PM"
       ],
     },
     duration: {
@@ -199,7 +196,7 @@ appointmentSchema.methods.isActive = function() {
 
 // Static method to get availability for a date
 appointmentSchema.statics.getAvailabilityForDate = async function(date: Date) {
-  const timeSlots = ["9:00 AM", "10:30 AM", "12:00 PM", "1:30 PM", "3:00 PM", "4:30 PM"];
+  const timeSlots = ["10:00 AM", "2:00 PM", "5:00 PM"];
   
   // Get start and end of day
   const startOfDay = new Date(date);
