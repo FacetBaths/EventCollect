@@ -911,6 +911,7 @@ export class LeapService {
       if (address.place_id) formData.append('address[place_id]', address.place_id);
       if (address.company_name) formData.append('address[company_name]', address.company_name);
       formData.append('address[address]', address.address);
+      if ((address as any).city) formData.append('address[city]', (address as any).city); // Add explicit city field
       if (address.country) formData.append('address[country]', address.country);
       formData.append('address[zip]', address.zip);
       if (address.country_id) formData.append('address[country_id]', address.country_id.toString());
@@ -927,6 +928,7 @@ export class LeapService {
         if (billing.place_id) formData.append('billing[place_id]', billing.place_id);
         if (billing.company_name) formData.append('billing[company_name]', billing.company_name);
         if (billing.address) formData.append('billing[address]', billing.address);
+        if ((billing as any).city) formData.append('billing[city]', (billing as any).city); // Add explicit city field
         if (billing.country) formData.append('billing[country]', billing.country);
         if (billing.zip) formData.append('billing[zip]', billing.zip);
         if (billing.country_id) formData.append('billing[country_id]', billing.country_id.toString());
@@ -1124,11 +1126,11 @@ export class LeapService {
             label: "home"
           }
         ],
-        company_name: leadData.eventName, // Use event name as company name for tracking
+        company_name: leadData.referredBy || leadData.eventName, // Use actual event name for tracking
         rep_id: leadData.salesRepId || leadData.callCenterRepId || 88443, // Default to BDC Rep
         division_id: leadData.divisionId || 6496, // Default to Renovation division
         referred_by_type: "other", // Always use 'other' for events
-        referred_by_note: leadData.eventName, // Event name goes in the note field
+        referred_by_note: leadData.referredBy || leadData.eventName, // Use actual event name
         temp_id: Math.floor(Math.random() * 1000), // Generate a temp ID
         is_commercial: 0, // Assume residential
         call_required: 0,
@@ -1139,7 +1141,7 @@ export class LeapService {
           }
         ],
         job: {
-          name: `${lastName} - ${leadData.eventName}`, // Temporary name, will be updated with job ID after creation
+          name: `${lastName} - ${leadData.referredBy || leadData.eventName}`, // Temporary name, will be updated with job ID after creation
           day: 0,
           hour: 0,
           min: 0,
@@ -1164,8 +1166,9 @@ export class LeapService {
         },
         address: {
           place_id: "", // You might want to use Google Places API
-          company_name: leadData.eventName,
+          company_name: leadData.referredBy || leadData.eventName,
           address: leadData.address.street,
+          city: leadData.address.city, // Add explicit city field
           country: "United States",
           zip: leadData.address.zipCode,
           country_id: 1,
@@ -1176,8 +1179,9 @@ export class LeapService {
         },
         billing: {
           place_id: "",
-          company_name: leadData.eventName,
+          company_name: leadData.referredBy || leadData.eventName,
           address: leadData.address.street,
+          city: leadData.address.city, // Add explicit city field
           country: "United States",
           zip: leadData.address.zipCode,
           country_id: 1,
@@ -1198,28 +1202,64 @@ export class LeapService {
 
       // Try to update the job name with the auto-generated job ID
       try {
-        const jobId = result.data?.job?.id || result.data?.job_id;
-        const jobNumber = result.data?.job?.number || result.data?.job_number;
+        // Log the full LEAP response structure to understand the data format
+        logger.info("LEAP API Response Structure for Job ID extraction:", {
+          responseData: result.data,
+          responseKeys: result.data ? Object.keys(result.data) : 'No data',
+          timestamp: new Date().toISOString()
+        });
         
-        if (jobId && jobNumber) {
-          logger.info("Updating job name with LEAP job number", {
+        // Try multiple possible paths for job ID - LEAP returns job_ids as an array
+        const jobId = result.data?.job_ids?.[0] ||  // LEAP returns job_ids as array - this is the correct path
+                     result.data?.job?.id || 
+                     result.data?.job_id || 
+                     result.data?.data?.job?.id ||
+                     result.data?.data?.job_id ||
+                     result.data?.prospect?.job?.id ||
+                     result.data?.prospect_id;
+        
+        logger.info("Extracted job ID from LEAP response:", {
+          jobId,
+          jobIdType: typeof jobId,
+          prospectId: result.data?.id || result.data?.prospect_id,
+          timestamp: new Date().toISOString()
+        });
+        
+        if (jobId) {
+          // Convert job ID to string for the job name
+          const jobIdString = String(jobId);
+          
+          logger.info("Updating job name to match LEAP job ID", {
             jobId,
-            jobNumber,
-            prospectId: result.data?.id
+            newJobName: jobIdString,
+            prospectId: result.data?.id || result.data?.prospect_id
           });
           
-          // Update the job name to use the LEAP-generated job number
-          await this.updateJobName(jobId, jobNumber);
+          // Update the job name to use the LEAP-assigned job ID
+          await this.updateJobName(jobId, jobIdString);
+          
+          logger.info("Job name updated successfully to match job ID", {
+            jobId,
+            updatedJobName: jobIdString
+          });
         } else {
-          logger.warn("Job ID or job number not found in LEAP response", {
-            prospectId: result.data?.id,
-            responseData: result.data
+          logger.warn("Job ID not found in LEAP response - skipping job name update", {
+            prospectId: result.data?.id || result.data?.prospect_id,
+            responseStructure: {
+              hasJob: !!result.data?.job,
+              hasJobId: !!result.data?.job_id,
+              hasData: !!result.data?.data,
+              hasProspect: !!result.data?.prospect,
+              topLevelKeys: result.data ? Object.keys(result.data) : []
+            }
           });
         }
       } catch (updateError: any) {
         logger.warn("Failed to update job name with job ID, but prospect was created successfully", {
           error: updateError.message,
-          prospectId: result.data?.id
+          errorStack: updateError.stack,
+          prospectId: result.data?.id || result.data?.prospect_id,
+          timestamp: new Date().toISOString()
         });
       }
 
