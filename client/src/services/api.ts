@@ -182,6 +182,11 @@ export const apiService = {
     return response.data;
   },
 
+  async getActiveEvent(): Promise<ApiResponse<any>> {
+    const response = await api.get('/events/active');
+    return response.data;
+  },
+
   async createEvent(eventData: any): Promise<ApiResponse<any>> {
     const response = await api.post('/events', eventData);
     return response.data;
@@ -189,6 +194,11 @@ export const apiService = {
 
   async updateEvent(id: string, eventData: any): Promise<ApiResponse<any>> {
     const response = await api.put(`/events/${id}`, eventData);
+    return response.data;
+  },
+
+  async activateEvent(id: string): Promise<ApiResponse<any>> {
+    const response = await api.put(`/events/${id}/activate`);
     return response.data;
   },
 

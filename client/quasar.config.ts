@@ -31,7 +31,20 @@ export default defineConfig((/* ctx */) => {
     ],
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#build
-    build: {
+  boot: ['axios'],
+
+  css: ['app.scss'],
+
+  extras: [
+    'roboto-font',
+    'material-icons'
+  ],
+
+  htmlVariables: {
+    favicon: 'favicon.png'
+  },
+
+  build: {
       target: {
         browser: ['es2022', 'firefox115', 'chrome115', 'safari14'],
         node: 'node20',

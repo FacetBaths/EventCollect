@@ -1,5 +1,6 @@
 import express from "express";
 import { Lead, ILead } from "../models/Lead";
+import { Event } from "../models/Event";
 import { leapService } from "../services/leapService";
 import { logger } from "../utils/logger";
 
@@ -26,9 +27,17 @@ router.post("/", async (req, res) => {
   try {
     const leadData: ILead = req.body;
     
-    // Set default eventName if not provided
+    // Set eventName from active event if not provided
     if (!leadData.eventName) {
-      leadData.eventName = process.env.DEFAULT_EVENT_NAME || "Web Form Submission";
+      try {
+        const activeEvent = await Event.findOne({ isActive: true });
+        leadData.eventName = activeEvent?.name || "Web Form Submission";
+      } catch (eventError: any) {
+        logger.warn("Could not fetch active event, using default", {
+          error: eventError.message
+        });
+        leadData.eventName = "Web Form Submission";
+      }
     }
     
     const newLead = new Lead(leadData);
@@ -65,6 +74,7 @@ router.post("/", async (req, res) => {
             preferredTime: newLead.appointmentDetails?.preferredTime || "",
             notes: newLead.appointmentDetails?.notes || "",
           } : undefined,
+          leadId: (newLead._id as any).toString(), // Pass MongoDB ObjectID for job tracking
         });
         
         // Update lead with LEAP sync results from Create Prospect API

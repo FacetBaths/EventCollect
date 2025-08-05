@@ -344,15 +344,19 @@ export class LeapService {
         userId,
       });
 
-      // Parse date properly to avoid timezone issues
+      // Parse date properly to avoid timezone issues by using UTC
       const [year, month, day] = date.split('-').map(Number);
-      const checkDate = new Date(year, month - 1, day); // month is 0-indexed
+      const checkDate = new Date(Date.UTC(year, month - 1, day)); // Use UTC to avoid timezone issues
 
-      logger.debug(`Checking date ${date}: year=${year}, month=${month}, day=${day}, parsed day of week=${checkDate.getDay()}`);
+      // For day of week calculation, use local date at noon to avoid edge cases
+      const localCheckDate = new Date(year, month - 1, day, 12, 0, 0);
+      const dayOfWeek = localCheckDate.getDay();
+
+      logger.debug(`Checking date ${date}: year=${year}, month=${month}, day=${day}, UTC day of week=${checkDate.getDay()}, local day of week=${dayOfWeek}`);
 
       // Note: We allow Sunday appointments but don't suggest them in findNextAvailableMonday
       // Skip Sundays for business hours
-      if (checkDate.getDay() === 0) {
+      if (dayOfWeek === 0) {
         return {
           success: true,
           data: timeSlots.map(timeSlot => ({
@@ -824,12 +828,20 @@ export class LeapService {
       }
       if (prospectData.referred_by_type) {
         formData.append('referred_by_type', prospectData.referred_by_type);
+        // Try alternative field names for LEAP CRM compatibility
+        formData.append('referral_type', prospectData.referred_by_type);
+        formData.append('referral_source', prospectData.referred_by_type);
       }
       if (prospectData.referred_by_id) {
         formData.append('referred_by_id', prospectData.referred_by_id.toString());
+        formData.append('referral_id', prospectData.referred_by_id.toString());
       }
       if (prospectData.referred_by_note) {
         formData.append('referred_by_note', prospectData.referred_by_note);
+        // Try alternative field names for LEAP CRM compatibility
+        formData.append('referral_note', prospectData.referred_by_note);
+        formData.append('referral_notes', prospectData.referred_by_note);
+        formData.append('source_notes', prospectData.referred_by_note);
       }
       if (prospectData.temp_id) {
         formData.append('temp_id', prospectData.temp_id.toString());
@@ -926,6 +938,15 @@ export class LeapService {
         }
       }
 
+      // Log the actual form data being sent to debug referral fields
+      const formDataEntries = Array.from(formData.entries());
+      const referralEntries = formDataEntries.filter(([key]) => key.includes('referred'));
+      logger.info("LEAP Referral Form Data Being Sent:", {
+        referralEntries,
+        allFormDataKeys: formDataEntries.map(([key]) => key),
+        timestamp: new Date().toISOString()
+      });
+
       const response: AxiosResponse = await this.apiClient.post(
         "/prospects",
         formData.toString(),
@@ -949,6 +970,49 @@ export class LeapService {
       };
     } catch (error: any) {
       logger.error("Failed to create prospect in LEAP CRM", error);
+      throw new Error(
+        `LEAP CRM Error: ${error.response?.data?.message || error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Update job name with LEAP's auto-generated job number
+   */
+  async updateJobName(jobId: string | number, jobNumber: string): Promise<LeapApiResponse<any>> {
+    try {
+      logger.info("Updating job name in LEAP CRM", { jobId, jobNumber });
+
+      const response: AxiosResponse = await this.apiClient.put(
+        `/jobs/${jobId}`,
+        { name: jobNumber },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': this.apiToken
+          }
+        }
+      );
+
+      logger.info("Job name updated successfully in LEAP CRM", {
+        jobId,
+        newName: jobNumber,
+      });
+
+      return {
+        success: true,
+        data: response.data.data || response.data,
+        status: response.status,
+        message: "Job name updated successfully",
+      };
+    } catch (error: any) {
+      logger.error("Failed to update job name in LEAP CRM", {
+        jobId,
+        jobNumber,
+        error: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
       throw new Error(
         `LEAP CRM Error: ${error.response?.data?.message || error.message}`,
       );
@@ -984,6 +1048,7 @@ export class LeapService {
       preferredTime: string;
       notes?: string;
     };
+    leadId?: string; // MongoDB ObjectID for tracking
   }): Promise<LeapApiResponse<any>> {
     try {
       logger.info("Starting lead sync to LEAP CRM using Create Prospect API", { leadData });
@@ -1066,7 +1131,7 @@ export class LeapService {
           }
         ],
         job: {
-          name: `${lastName} - ${leadData.eventName}`,
+          name: `${lastName} - ${leadData.eventName}`, // Temporary name, will be updated with job ID after creation
           day: 0,
           hour: 0,
           min: 0,
@@ -1079,7 +1144,7 @@ export class LeapService {
           address_line_1: leadData.address.street,
           lat: "0", // You might want to geocode this
           long: "0", // You might want to geocode this
-          alt_id: 1,
+          alt_id: leadData.leadId ? parseInt(leadData.leadId.slice(-8), 16) : Math.floor(Math.random() * 100000), // Convert leadId to number or use random
           estimator_ids: leadData.salesRepId ? [leadData.salesRepId] : [],
           description: buildJobDescription(leadData),
           trades: (leadData.tradeIds && leadData.tradeIds.length > 0) ? leadData.tradeIds : [105], // Default to BATH REMODEL (105)
@@ -1122,6 +1187,33 @@ export class LeapService {
       });
 
       const result = await this.createProspect(prospectData);
+
+      // Try to update the job name with the auto-generated job ID
+      try {
+        const jobId = result.data?.job?.id || result.data?.job_id;
+        const jobNumber = result.data?.job?.number || result.data?.job_number;
+        
+        if (jobId && jobNumber) {
+          logger.info("Updating job name with LEAP job number", {
+            jobId,
+            jobNumber,
+            prospectId: result.data?.id
+          });
+          
+          // Update the job name to use the LEAP-generated job number
+          await this.updateJobName(jobId, jobNumber);
+        } else {
+          logger.warn("Job ID or job number not found in LEAP response", {
+            prospectId: result.data?.id,
+            responseData: result.data
+          });
+        }
+      } catch (updateError: any) {
+        logger.warn("Failed to update job name with job ID, but prospect was created successfully", {
+          error: updateError.message,
+          prospectId: result.data?.id
+        });
+      }
 
       logger.info("Lead sync to LEAP CRM completed successfully using Create Prospect API", {
         prospectId: result.data?.id,

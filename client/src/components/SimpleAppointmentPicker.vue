@@ -142,8 +142,9 @@ function confirmAppointment() {
     return;
   }
 
-  // Check if the selected date is a Sunday
-  const selectedDateObj = new Date(selectedDate.value);
+  // Check if the selected date is a Sunday (use local date parsing to avoid timezone issues)
+  const [year, month, day] = selectedDate.value.split('-').map(Number);
+  const selectedDateObj = new Date(year, month - 1, day, 12, 0, 0); // Use noon to avoid timezone edge cases
   if (selectedDateObj.getDay() === 0) {
     Notify.create({
       type: 'negative',
