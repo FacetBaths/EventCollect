@@ -170,6 +170,80 @@ export class LeapService {
   }
 
   /**
+   * Update an existing customer in LEAP CRM
+   */
+  async updateCustomer(
+    customerId: string | number,
+    customerData: Partial<LeapCustomer>,
+  ): Promise<LeapApiResponse<LeapCustomer>> {
+    try {
+      logger.info("Updating customer in LEAP CRM", { customerId, customerData });
+
+      const response: AxiosResponse = await this.apiClient.put(
+        `/customers/${customerId}`,
+        customerData,
+      );
+
+      logger.info("Customer updated successfully in LEAP CRM", {
+        customerId: response.data.data?.id || customerId,
+      });
+
+      return {
+        success: true,
+        data: response.data.data || response.data,
+        status: response.status,
+        message: "Customer updated successfully",
+      };
+    } catch (error: any) {
+      logger.error("Failed to update customer in LEAP CRM", error);
+      throw new Error(
+        `LEAP CRM Error: ${error.response?.data?.message || error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Update an existing job in LEAP CRM
+   */
+  async updateJob(
+    jobId: string | number,
+    jobData: Partial<LeapJob>,
+  ): Promise<LeapApiResponse<LeapJob>> {
+    try {
+      logger.info("Updating job in LEAP CRM", { jobId, jobData });
+
+      const response: AxiosResponse = await this.apiClient.put(
+        `/jobs/${jobId}`,
+        jobData,
+      );
+
+      logger.info("Job updated successfully in LEAP CRM", {
+        jobId: response.data.data?.id || jobId,
+      });
+
+      return {
+        success: true,
+        data: response.data.data || response.data,
+        status: response.status,
+        message: "Job updated successfully",
+      };
+    } catch (error: any) {
+      logger.error("Failed to update job in LEAP CRM", {
+        jobId,
+        error: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        responseData: error.response?.data,
+        requestData: jobData,
+        timestamp: new Date().toISOString()
+      });
+      throw new Error(
+        `LEAP CRM Error: ${error.response?.data?.message || error.message}`,
+      );
+    }
+  }
+
+  /**
    * Create a new job in LEAP CRM
    */
   async createJob(
@@ -1069,6 +1143,8 @@ export class LeapService {
       notes?: string;
     };
     leadId?: string; // MongoDB ObjectID for tracking
+    leapCustomerId?: string; // LEAP CRM customer ID for updates
+    leapJobId?: string; // LEAP CRM job ID for updates
   }): Promise<LeapApiResponse<any>> {
     try {
       logger.info("Starting lead sync to LEAP CRM using Create Prospect API", { leadData });
@@ -1209,16 +1285,59 @@ export class LeapService {
         }
       };
 
-      // Log the complete prospect data being sent to LEAP
-      logger.info("Complete prospect data being sent to LEAP:", {
-        prospectData,
-        timestamp: new Date().toISOString()
-      });
+      // Check if this is an update to an existing job
+      if (leadData.leapJobId) {
+        logger.info("Updating existing job in LEAP CRM", {
+          leapJobId: leadData.leapJobId,
+          leadId: leadData.leadId
+        });
 
-      const result = await this.createProspect(prospectData);
+        // Update existing job instead of creating new prospect
+        const jobUpdateData = {
+          name: leadData.leadId || `${lastName} - ${leadData.referredBy || leadData.eventName}`,
+          description: buildJobDescription(leadData),
+          address: {
+            address_line_1: leadData.address.street,
+            city: leadData.address.city,
+            state: leadData.address.state,
+            zip: leadData.address.zipCode,
+            country: "United States"
+          },
+          referral_source: leadData.referredBy || leadData.eventName
+        };
 
-      // Try to update the job name with the auto-generated job ID
-      try {
+        const jobResult = await this.updateJob(leadData.leapJobId, jobUpdateData);
+
+        // Return result in format compatible with existing code
+        const result = {
+          success: true,
+          data: {
+            job: jobResult.data,
+            id: jobResult.data.id,
+            job_id: jobResult.data.id,
+            job_ids: [jobResult.data.id] // Match the format expected by job ID extraction
+          },
+          status: 200,
+          message: "Job updated successfully"
+        };
+
+        logger.info("Job updated successfully in LEAP CRM", {
+          jobId: jobResult.data.id,
+          leadId: leadData.leadId
+        });
+
+        return result;
+      } else {
+        // Create new prospect (customer + job in one call)
+        logger.info("Creating new prospect in LEAP CRM", {
+          prospectData,
+          timestamp: new Date().toISOString()
+        });
+
+        const result = await this.createProspect(prospectData);
+
+        // Try to update the job name with the auto-generated job ID
+        try {
         // Log the full LEAP response structure to understand the data format
         logger.info("LEAP API Response Structure for Job ID extraction:", {
           responseData: result.data,
@@ -1278,14 +1397,15 @@ export class LeapService {
           prospectId: result.data?.id || result.data?.prospect_id,
           timestamp: new Date().toISOString()
         });
+        }
+
+        logger.info("Lead sync to LEAP CRM completed successfully using Create Prospect API", {
+          prospectId: result.data?.id,
+          result
+        });
+
+        return result;
       }
-
-      logger.info("Lead sync to LEAP CRM completed successfully using Create Prospect API", {
-        prospectId: result.data?.id,
-        result
-      });
-
-      return result;
     } catch (error: any) {
       logger.error("Failed to sync lead to LEAP CRM using Create Prospect API", error);
       throw error;
@@ -1323,8 +1443,16 @@ export const leapService = {
     return this.instance.createCustomer(customerData);
   },
 
+  async updateCustomer(customerId: string | number, customerData: any) {
+    return this.instance.updateCustomer(customerId, customerData);
+  },
+
   async createJob(jobData: any) {
     return this.instance.createJob(jobData);
+  },
+
+  async updateJob(jobId: string | number, jobData: any) {
+    return this.instance.updateJob(jobId, jobData);
   },
 
   async createAppointment(appointmentData: any) {

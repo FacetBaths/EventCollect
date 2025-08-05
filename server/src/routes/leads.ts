@@ -1,6 +1,7 @@
 import express from "express";
 import { Lead, ILead } from "../models/Lead";
 import { Event } from "../models/Event";
+import { Appointment } from "../models/Appointment";
 import { leapService } from "../services/leapService";
 import { logger } from "../utils/logger";
 
@@ -82,6 +83,8 @@ router.post("/", async (req, res) => {
             notes: newLead.appointmentDetails?.notes || "",
           } : undefined,
           leadId: (newLead._id as any).toString(), // Pass MongoDB ObjectID for job tracking
+          leapCustomerId: newLead.leapCustomerId, // Pass existing LEAP customer ID if available
+          leapJobId: newLead.leapJobId, // Pass existing LEAP job ID if available
         });
         
         // Update lead with LEAP sync results from Create Prospect API
@@ -319,6 +322,101 @@ router.post("/:id/resync", async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Error resyncing lead",
+      message: error.message,
+    });
+  }
+});
+
+// POST /api/leads/:id/appointment-preferences - Save appointment preferences immediately
+router.post("/:id/appointment-preferences", async (req, res) => {
+  try {
+    const leadId = req.params.id;
+    const { preferredDate, preferredTime, notes } = req.body;
+    
+    // Find the lead
+    const lead = await Lead.findById(leadId);
+    if (!lead) {
+      return res.status(404).json({
+        success: false,
+        error: "Lead not found",
+      });
+    }
+    
+    // Create or update appointment document
+    let appointment = await Appointment.findOne({ leadId: leadId });
+    
+    if (appointment) {
+      // Update existing appointment
+      appointment.date = preferredDate;
+      appointment.timeSlot = preferredTime;
+      appointment.notes = notes || "";
+      appointment.customerName = lead.fullName;
+      appointment.customerEmail = lead.email;
+      appointment.customerPhone = lead.phone;
+      appointment.status = "scheduled";
+      // updatedAt is handled automatically by mongoose timestamps
+      
+      await appointment.save();
+      logger.info("Appointment preferences updated", { leadId, appointmentId: appointment._id });
+    } else {
+      // Create new appointment
+      appointment = new Appointment({
+        leadId: leadId,
+        date: preferredDate,
+        timeSlot: preferredTime,
+        notes: notes || "",
+        customerName: lead.fullName,
+        customerEmail: lead.email,
+        customerPhone: lead.phone,
+        status: "scheduled",
+        address: {
+          street: lead.address.street,
+          city: lead.address.city,
+          state: lead.address.state,
+          zipCode: lead.address.zipCode,
+        },
+        servicesOfInterest: lead.servicesOfInterest,
+        tradeIds: lead.tradeIds,
+        salesRepId: lead.salesRepId,
+        eventName: lead.eventName,
+        // createdAt and updatedAt are handled automatically by mongoose timestamps
+      });
+      
+      await appointment.save();
+      logger.info("Appointment preferences saved", { leadId, appointmentId: appointment._id });
+    }
+    
+    // Update lead with appointment details and mark as wanting appointment
+    lead.wantsAppointment = true;
+    lead.appointmentDetails = {
+      preferredDate,
+      preferredTime,
+      notes: notes || "",
+    };
+    await lead.save();
+    
+    res.json({
+      success: true,
+      message: "Appointment preferences saved successfully",
+      data: {
+        appointment,
+        lead: {
+          id: lead._id,
+          fullName: lead.fullName,
+          wantsAppointment: lead.wantsAppointment,
+          appointmentDetails: lead.appointmentDetails,
+        },
+      },
+    });
+  } catch (error: any) {
+    logger.error("Error saving appointment preferences", {
+      error: error.message,
+      stack: error.stack,
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: "Error saving appointment preferences",
       message: error.message,
     });
   }

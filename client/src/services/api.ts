@@ -90,6 +90,15 @@ export const apiService = {
     return response.data;
   },
 
+  async saveAppointmentPreferences(leadId: string, preferences: {
+    preferredDate: string;
+    preferredTime: string;
+    notes?: string;
+  }): Promise<ApiResponse<any>> {
+    const response = await api.post(`/leads/${leadId}/appointment-preferences`, preferences);
+    return response.data;
+  },
+
   // LEAP CRM sync
   async testLeapConnection(): Promise<ApiResponse<any>> {
     const response = await api.get('/leap-sync/test-connection');

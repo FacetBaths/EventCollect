@@ -1,7 +1,7 @@
 <template>
   <q-layout view="lHh Lpr lFf">
     <q-header elevated class="bg-white text-dark">
-      <q-toolbar class="q-pa-md">
+      <q-toolbar class="q-pa-sm q-pa-md-md">
         <q-btn
           v-if="$q.screen.lt.md"
           flat
@@ -10,15 +10,15 @@
           icon="menu"
           aria-label="Menu"
           @click="toggleLeftDrawer"
-          class="text-primary"
+          class="text-primary q-mr-sm"
         />
 
-    <q-toolbar-title class="flex items-center">
-      <img src="https://raw.githubusercontent.com/FacetBaths/EventCollect/main/client/public/assets/Logo_V2_Gradient7_CTC.png" alt="EventCollect Logo" class="logo q-mr-md" loading="lazy" />
-          <span class="text-h5 text-weight-medium text-primary">EventCollect</span>
+        <q-toolbar-title class="flex items-center no-wrap">
+          <img src="https://raw.githubusercontent.com/FacetBaths/EventCollect/main/client/public/assets/Logo_V2_Gradient7_CTC.png" alt="EventCollect Logo" class="logo q-mr-sm q-mr-md-md" loading="lazy" />
+          <span class="text-h6 text-h5-md text-weight-medium text-primary" :class="$q.screen.lt.sm ? 'text-no-wrap' : ''">EventCollect</span>
         </q-toolbar-title>
 
-        <div class="flex items-center q-gutter-md">
+        <div class="flex items-center q-gutter-xs q-gutter-md-md">
           <!-- Desktop Navigation -->
           <div v-if="$q.screen.gt.sm" class="desktop-nav q-mr-lg">
             <q-btn
@@ -36,7 +36,13 @@
             </q-btn>
           </div>
 
-          <div class="text-caption text-accent">
+          <!-- Mobile current event display -->
+          <div v-if="$q.screen.lt.md" class="text-caption text-accent mobile-event-display">
+            {{ currentEvent && currentEvent.length > 20 ? currentEvent.substring(0, 20) + '...' : currentEvent || 'No event' }}
+          </div>
+          
+          <!-- Desktop current event display -->
+          <div v-else class="text-caption text-accent">
             Current Event: {{ currentEvent || 'No event selected' }}
           </div>
 
@@ -48,6 +54,7 @@
             @click="resyncLeapData"
             :loading="resyncLoading"
             :disable="resyncLoading"
+            :size="$q.screen.lt.sm ? 'xs' : 'sm'"
           >
             <q-tooltip>Resync LEAP Data</q-tooltip>
           </q-btn>
@@ -57,13 +64,18 @@
 
     <q-drawer
       v-model="leftDrawerOpen"
-      v-if="$q.screen.lt.md"
       show-if-above
       bordered
       class="bg-grey-1"
+      :breakpoint="768"
+      :width="280"
     >
       <q-list>
-        <q-item-label header class="text-primary text-weight-bold"> EventCollect </q-item-label>
+        <q-item-label header class="text-primary text-weight-bold q-pa-md"> 
+          <q-icon name="business" class="q-mr-sm" />EventCollect 
+        </q-item-label>
+
+        <q-separator class="q-mb-md" />
 
         <q-item
           v-for="link in navigationLinks"
@@ -71,14 +83,28 @@
           :to="link.route"
           clickable
           v-ripple
-          class="q-my-sm"
+          class="q-my-xs"
+          @click="$q.screen.lt.md && (leftDrawerOpen = false)"
         >
           <q-item-section avatar>
-            <q-icon :name="link.icon" color="primary" />
+            <q-icon :name="link.icon" color="primary" size="md" />
           </q-item-section>
           <q-item-section>
-            <q-item-label class="text-weight-medium">{{ link.title }}</q-item-label>
-            <q-item-label caption>{{ link.caption }}</q-item-label>
+            <q-item-label class="text-weight-medium text-body1">{{ link.title }}</q-item-label>
+            <q-item-label caption class="text-body2">{{ link.caption }}</q-item-label>
+          </q-item-section>
+        </q-item>
+        
+        <q-separator class="q-my-md" />
+        
+        <!-- Mobile-specific actions -->
+        <q-item clickable v-ripple @click="resyncLeapData" :disable="resyncLoading">
+          <q-item-section avatar>
+            <q-icon name="refresh" color="primary" :class="resyncLoading ? 'rotating' : ''" />
+          </q-item-section>
+          <q-item-section>
+            <q-item-label class="text-weight-medium">Resync LEAP Data</q-item-label>
+            <q-item-label caption>Refresh CRM integration</q-item-label>
           </q-item-section>
         </q-item>
       </q-list>

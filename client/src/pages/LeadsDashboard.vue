@@ -53,73 +53,369 @@
       </div>
     </div>
 
+    <!-- Leads Grid -->
     <div class="q-mb-md">
-      <q-table
-        :rows="filteredLeads"
-        :columns="columns"
-        row-key="_id"
-        :loading="loading"
-        flat
-        bordered
-        :pagination="{ rowsPerPage: 20 }"
-      >
-        <!-- Custom cell rendering for status and temp -->
-        <template v-slot:body-cell-syncStatus="props">
-          <q-td :props="props">
-            <q-chip
-              :color="getSyncStatusColor(props.value)"
-              text-color="white"
-              :label="props.value.toUpperCase()"
-              size="sm"
-            />
-          </q-td>
-        </template>
+      <!-- Mobile View Toggle -->
+      <div class="row items-center q-mb-md">
+        <q-space />
+        <q-btn-toggle
+          v-model="viewMode"
+          spread
+          no-caps
+          rounded
+          unelevated
+          toggle-color="primary"
+          color="white"
+          text-color="primary"
+          :options="[
+            {label: 'Cards', value: 'cards', icon: 'view_module'},
+            {label: 'Table', value: 'table', icon: 'table_chart'}
+          ]"
+        />
+      </div>
+
+      <!-- Card View -->
+      <div v-if="viewMode === 'cards'" class="leads-grid">
+        <div v-if="loading" class="text-center q-pa-lg">
+          <q-spinner-dots size="50px" color="primary" />
+          <div class="text-body2 text-grey-6 q-mt-md">Loading leads...</div>
+        </div>
         
-        <template v-slot:body-cell-tempRating="props">
-          <q-td :props="props">
-            <q-chip
-              v-if="props.value"
-              :color="getTempColor(props.value)"
-              text-color="white"
-              :label="`${props.value}/10`"
-              size="sm"
-            />
-            <span v-else class="text-grey-5">-</span>
-          </q-td>
-        </template>
+        <div v-else-if="filteredLeads.length === 0" class="text-center q-pa-xl">
+          <q-icon name="people" size="4rem" color="grey-5" />
+          <div class="text-h6 text-grey-6 q-mt-md">No leads found</div>
+        </div>
         
-        <!-- Actions column -->
-        <template v-slot:body-cell-actions="props">
-          <q-td :props="props">
-            <div class="q-gutter-xs">
-              <q-btn flat icon="edit" @click="editLead(props.row)" color="primary" size="sm">
-                <q-tooltip>Edit Lead</q-tooltip>
-              </q-btn>
-              <q-btn flat icon="event" @click="setAppointment(props.row)" color="green" size="sm">
-                <q-tooltip>Set Appointment</q-tooltip>
-              </q-btn>
-              <q-btn flat icon="sync" @click="resyncLead(props.row._id)" color="orange" size="sm" v-if="props.row.syncStatus === 'error'">
-                <q-tooltip>Resync to LEAP</q-tooltip>
-              </q-btn>
-              <q-btn flat icon="delete" @click="deleteLead(props.row._id)" color="negative" size="sm">
-                <q-tooltip>Delete Lead</q-tooltip>
-              </q-btn>
-            </div>
-          </q-td>
-        </template>
-      </q-table>
+        <div v-else class="row q-col-gutter-md">
+          <div 
+            v-for="lead in paginatedLeads" 
+            :key="lead._id" 
+            class="col-12 col-sm-6 col-md-4"
+          >
+            <LeadCard 
+              :lead="lead"
+              @edit="editLead"
+              @set-appointment="setAppointment"
+              @resync="resyncLead"
+              @delete="deleteLead"
+            />
+          </div>
+        </div>
+        
+        <!-- Pagination for Cards -->
+        <div v-if="totalPages > 1" class="row justify-center q-mt-md">
+          <q-pagination
+            v-model="currentPage"
+            :max="totalPages"
+            :max-pages="6"
+            boundary-numbers
+          />
+        </div>
+      </div>
+
+      <!-- Table View -->
+      <div v-else>
+        <q-table
+          :rows="filteredLeads"
+          :columns="columns"
+          row-key="_id"
+          :loading="loading"
+          flat
+          bordered
+          :pagination="{ rowsPerPage: 20 }"
+        >
+          <!-- Custom cell rendering for status and temp -->
+          <template v-slot:body-cell-syncStatus="props">
+            <q-td :props="props">
+              <q-chip
+                :color="getSyncStatusColor(props.value)"
+                text-color="white"
+                :label="props.value.toUpperCase()"
+                size="sm"
+              />
+            </q-td>
+          </template>
+          
+          <template v-slot:body-cell-tempRating="props">
+            <q-td :props="props">
+              <q-chip
+                v-if="props.value"
+                :color="getTempColor(props.value)"
+                text-color="white"
+                :label="`${props.value}/10`"
+                size="sm"
+              />
+              <span v-else class="text-grey-5">-</span>
+            </q-td>
+          </template>
+          
+          <!-- Actions column -->
+          <template v-slot:body-cell-actions="props">
+            <q-td :props="props">
+              <div class="q-gutter-xs">
+                <q-btn flat icon="edit" @click="editLead(props.row)" color="primary" size="sm">
+                  <q-tooltip>Edit Lead</q-tooltip>
+                </q-btn>
+                <q-btn flat icon="event" @click="setAppointment(props.row)" color="green" size="sm">
+                  <q-tooltip>Set Appointment</q-tooltip>
+                </q-btn>
+                <q-btn flat icon="sync" @click="resyncLead(props.row._id)" color="orange" size="sm" v-if="props.row.syncStatus === 'error'">
+                  <q-tooltip>Resync to LEAP</q-tooltip>
+                </q-btn>
+                <q-btn flat icon="delete" @click="deleteLead(props.row._id)" color="negative" size="sm">
+                  <q-tooltip>Delete Lead</q-tooltip>
+                </q-btn>
+              </div>
+            </q-td>
+          </template>
+        </q-table>
+      </div>
     </div>
     
     <!-- Edit Lead Dialog -->
-    <q-dialog v-model="editLeadDialog" persistent>
-      <q-card style="min-width: 500px">
-        <q-card-section>
+    <q-dialog v-model="editLeadDialog" persistent :maximized="$q.screen.lt.md" :full-width="$q.screen.lt.lg">
+      <q-card :style="$q.screen.gt.sm ? 'min-width: 800px; max-width: 1200px; width: 90vw;' : 'width: 100vw; height: 100vh;'">
+        <q-card-section class="row items-center q-pb-none">
           <div class="text-h6">Edit Lead</div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup />
         </q-card-section>
         
-        <q-card-section v-if="selectedLead" class="q-pt-none">
-          <div class="row q-gutter-md">
+        <q-card-section v-if="selectedLead" class="q-pt-sm" :class="$q.screen.lt.md ? 'q-pa-sm' : ''">
+          <!-- Mobile: Collapsible Sections -->
+          <div v-if="$q.screen.lt.md">
+            <!-- Basic Information -->
+            <q-expansion-item
+              default-opened
+              icon="person"
+              label="Basic Information"
+              class="q-mb-md"
+            >
+              <q-card>
+                <q-card-section>
+                  <q-input
+                    filled
+                    v-model="selectedLead.fullName"
+                    label="Full Name"
+                    class="q-mb-md"
+                  />
+                  <q-input
+                    filled
+                    v-model="selectedLead.email"
+                    label="Email"
+                    type="email"
+                    class="q-mb-md"
+                  />
+                  <q-input
+                    filled
+                    v-model="selectedLead.phone"
+                    label="Phone"
+                    class="q-mb-md"
+                  />
+                </q-card-section>
+              </q-card>
+            </q-expansion-item>
+
+            <!-- Address -->
+            <q-expansion-item
+              icon="location_on"
+              label="Address"
+              class="q-mb-md"
+            >
+              <q-card>
+                <q-card-section>
+                  <q-input
+                    filled
+                    v-model="selectedLead.address.street"
+                    label="Street"
+                    class="q-mb-sm"
+                  />
+                  <div class="row q-gutter-sm">
+                    <q-input
+                      filled
+                      v-model="selectedLead.address.city"
+                      label="City"
+                      class="col"
+                    />
+                    <q-input
+                      filled
+                      v-model="selectedLead.address.state"
+                      label="State"
+                      class="col-4"
+                    />
+                  </div>
+                  <q-input
+                    filled
+                    v-model="selectedLead.address.zipCode"
+                    label="Zip Code"
+                    class="q-mt-sm"
+                  />
+                </q-card-section>
+              </q-card>
+            </q-expansion-item>
+
+            <!-- Services & Notes -->
+            <q-expansion-item
+              icon="handyman"
+              label="Services & Notes"
+              class="q-mb-md"
+            >
+              <q-card>
+                <q-card-section>
+                  <q-select
+                    filled
+                    v-model="selectedLead.servicesOfInterest"
+                    multiple
+                    :options="[]"
+                    use-chips
+                    stack-label
+                    label="Services of Interest"
+                    class="q-mb-md"
+                  />
+                  <q-input
+                    filled
+                    v-model="selectedLead.notes"
+                    label="Notes"
+                    type="textarea"
+                    rows="3"
+                    class="q-mb-md"
+                  />
+                </q-card-section>
+              </q-card>
+            </q-expansion-item>
+
+            <!-- Temperature Rating -->
+            <q-expansion-item
+              icon="thermostat"
+              label="Prospect Temperature"
+              class="q-mb-md"
+            >
+              <q-card>
+                <q-card-section>
+                  <div class="row items-center q-gutter-sm q-mb-sm">
+                    <div class="col">
+                      <q-slider
+                        v-model="selectedLead.tempRating"
+                        :min="1"
+                        :max="10"
+                        :step="1"
+                        :color="getTempColor(selectedLead.tempRating || 1)"
+                        track-color="grey-3"
+                        thumb-color="white"
+                        :markers="true"
+                        snap
+                      />
+                    </div>
+                    <div class="text-weight-bold col-auto" :class="`text-${getTempColor(selectedLead.tempRating || 1)}`">
+                      {{ selectedLead.tempRating || 1 }}/10
+                    </div>
+                  </div>
+                  <div class="text-caption text-grey-6">
+                    1-3: Cold (Blue) | 4-7: Warm (Orange) | 8-10: Hot (Red)
+                  </div>
+                </q-card-section>
+              </q-card>
+            </q-expansion-item>
+
+            <!-- LEAP CRM Details -->
+            <q-expansion-item
+              icon="cloud"
+              label="LEAP CRM Details"
+              class="q-mb-md"
+            >
+              <q-card>
+                <q-card-section>
+                  <div class="row q-gutter-sm q-mb-sm">
+                    <q-input
+                      filled
+                      v-model.number="selectedLead.tradeIds"
+                      label="Trade IDs"
+                      class="col"
+                    />
+                    <q-input
+                      filled
+                      v-model.number="selectedLead.workTypeIds"
+                      label="Work Type IDs"
+                      class="col"
+                    />
+                  </div>
+                  <div class="row q-gutter-sm q-mb-sm">
+                    <q-input
+                      filled
+                      v-model.number="selectedLead.salesRepId"
+                      label="Sales Rep ID"
+                      class="col"
+                    />
+                    <q-input
+                      filled
+                      v-model.number="selectedLead.callCenterRepId"
+                      label="Call Center Rep ID"
+                      class="col"
+                    />
+                  </div>
+                  <q-input
+                    filled
+                    v-model.number="selectedLead.divisionId"
+                    label="Division ID"
+                    class="q-mb-sm"
+                  />
+                </q-card-section>
+              </q-card>
+            </q-expansion-item>
+
+            <!-- Referral Information -->
+            <q-expansion-item
+              icon="how_to_reg"
+              label="Referral Information"
+              class="q-mb-md"
+            >
+              <q-card>
+                <q-card-section>
+                  <q-input
+                    filled
+                    v-model="selectedLead.referredBy"
+                    label="Referred By"
+                    class="q-mb-sm"
+                  />
+                  <div class="row q-gutter-sm q-mb-sm">
+                    <q-input
+                      filled
+                      v-model="selectedLead.referred_by_type"
+                      label="Referral Type"
+                      class="col"
+                    />
+                    <q-input
+                      filled
+                      v-model.number="selectedLead.referred_by_id"
+                      label="Referral ID"
+                      class="col-4"
+                    />
+                  </div>
+                  <q-input
+                    filled
+                    v-model="selectedLead.referred_by_note"
+                    label="Referral Note"
+                    class="q-mb-sm"
+                  />
+                </q-card-section>
+              </q-card>
+            </q-expansion-item>
+
+            <!-- Sync Error (if any) -->
+            <div v-if="selectedLead.syncStatus === 'error'" class="q-mb-md">
+              <q-banner class="text-white bg-negative" rounded>
+                <template v-slot:avatar>
+                  <q-icon name="error" />
+                </template>
+                Last sync error: {{ selectedLead.syncError || 'Unknown error' }}
+              </q-banner>
+            </div>
+          </div>
+
+          <!-- Desktop: Two Column Layout -->
+          <div v-else class="row q-gutter-md">
             <div class="col">
+              <div class="text-subtitle1 text-weight-medium q-mb-md">Basic Information</div>
               <q-input
                 filled
                 v-model="selectedLead.fullName"
@@ -139,49 +435,155 @@
                 label="Phone"
                 class="q-mb-md"
               />
-            </div>
-            <div class="col">
+              
+              <div class="text-subtitle1 text-weight-medium q-mb-md q-mt-lg">Address</div>
               <q-input
                 filled
-                v-model="selectedLead.eventName"
-                label="Event Name"
-                class="q-mb-md"
-                readonly
+                v-model="selectedLead.address.street"
+                label="Street"
+                class="q-mb-sm"
               />
-              <q-chip
-                :color="getSyncStatusColor(selectedLead.syncStatus)"
-                text-color="white"
-                :label="selectedLead.syncStatus.toUpperCase()"
-                class="q-mb-md"
-              />
-              <div v-if="selectedLead.syncStatus === 'error'" class="text-negative text-caption q-mb-md">
-                Last sync error: {{ selectedLead.syncError || 'Unknown error' }}
+              <div class="row q-gutter-sm">
+                <q-input
+                  filled
+                  v-model="selectedLead.address.city"
+                  label="City"
+                  class="col"
+                />
+                <q-input
+                  filled
+                  v-model="selectedLead.address.state"
+                  label="State"
+                  class="col-4"
+                />
               </div>
+              <q-input
+                filled
+                v-model="selectedLead.address.zipCode"
+                label="Zip Code"
+                class="q-mt-sm"
+              />
+            </div>
+            
+            <div class="col">
+              <div class="text-subtitle1 text-weight-medium q-mb-md">Services & Details</div>
+              <q-select
+                filled
+                v-model="selectedLead.servicesOfInterest"
+                multiple
+                :options="[]"
+                use-chips
+                stack-label
+                label="Services of Interest"
+                class="q-mb-md"
+              />
+              <q-input
+                filled
+                v-model="selectedLead.notes"
+                label="Notes"
+                type="textarea"
+                rows="3"
+                class="q-mb-md"
+              />
+
+              <!-- Temperature Rating -->
+              <div class="text-subtitle1 text-weight-medium q-mb-md q-mt-lg">Prospect Temperature</div>
+              <div class="row items-center q-gutter-sm q-mb-sm">
+                <div class="col">
+                  <q-slider
+                    v-model="selectedLead.tempRating"
+                    :min="1"
+                    :max="10"
+                    :step="1"
+                    :color="getTempColor(selectedLead.tempRating || 1)"
+                    track-color="grey-3"
+                    thumb-color="white"
+                    :markers="true"
+                    snap
+                  />
+                </div>
+                <div class="text-weight-bold col-auto" :class="`text-${getTempColor(selectedLead.tempRating || 1)}`">
+                  {{ selectedLead.tempRating || 1 }}/10
+                </div>
+              </div>
+              <div class="text-caption text-grey-6 q-mb-md">
+                1-3: Cold (Blue) | 4-7: Warm (Orange) | 8-10: Hot (Red)
+              </div>
+
+              <!-- LEAP CRM Details -->
+              <div class="text-subtitle1 text-weight-medium q-mb-md q-mt-lg">LEAP CRM Details</div>
+              <div class="row q-gutter-sm q-mb-sm">
+                <q-input
+                  filled
+                  v-model.number="selectedLead.tradeIds"
+                  label="Trade IDs"
+                  class="col"
+                />
+                <q-input
+                  filled
+                  v-model.number="selectedLead.workTypeIds"
+                  label="Work Type IDs"
+                  class="col"
+                />
+              </div>
+              <div class="row q-gutter-sm q-mb-sm">
+                <q-input
+                  filled
+                  v-model.number="selectedLead.salesRepId"
+                  label="Sales Rep ID"
+                  class="col"
+                />
+                <q-input
+                  filled
+                  v-model.number="selectedLead.callCenterRepId"
+                  label="Call Center Rep ID"
+                  class="col"
+                />
+              </div>
+              <q-input
+                filled
+                v-model.number="selectedLead.divisionId"
+                label="Division ID"
+                class="q-mb-md"
+              />
+
+              <!-- Referral Information -->
+              <div class="text-subtitle1 text-weight-medium q-mb-md q-mt-lg">Referral Information</div>
+              <q-input
+                filled
+                v-model="selectedLead.referredBy"
+                label="Referred By"
+                class="q-mb-sm"
+              />
+              <div class="row q-gutter-sm q-mb-sm">
+                <q-input
+                  filled
+                  v-model="selectedLead.referred_by_type"
+                  label="Referral Type"
+                  class="col"
+                />
+                <q-input
+                  filled
+                  v-model.number="selectedLead.referred_by_id"
+                  label="Referral ID"
+                  class="col-4"
+                />
+              </div>
+              <q-input
+                filled
+                v-model="selectedLead.referred_by_note"
+                label="Referral Note"
+                class="q-mb-md"
+              />
               
-              <!-- Temp Rating Gauge -->
-              <div class="q-mb-md">
-                <div class="text-subtitle2 q-mb-sm">Prospect Temperature</div>
-                <div class="row items-center q-gutter-sm">
-                  <div class="col">
-                    <q-slider
-                      v-model="selectedLead.tempRating"
-                      :min="1"
-                      :max="10"
-                      :step="1"
-                      :color="getTempColor(selectedLead.tempRating || 1)"
-                      track-color="grey-3"
-                      thumb-color="white"
-                      :markers="true"
-                      snap
-                    />
-                  </div>
-                  <div class="text-weight-bold" :class="`text-${getTempColor(selectedLead.tempRating || 1)}`">
-                    {{ selectedLead.tempRating || 1 }}/10
-                  </div>
-                </div>
-                <div class="text-caption text-grey-6 q-mt-xs">
-                  1-3: Cold (Blue) | 4-7: Warm (Orange) | 8-10: Hot (Red)
-                </div>
+              <!-- Sync Error (if any) -->
+              <div v-if="selectedLead.syncStatus === 'error'" class="q-mb-md">
+                <q-banner class="text-white bg-negative" rounded>
+                  <template v-slot:avatar>
+                    <q-icon name="error" />
+                  </template>
+                  Last sync error: {{ selectedLead.syncError || 'Unknown error' }}
+                </q-banner>
               </div>
             </div>
           </div>
@@ -195,9 +597,9 @@
           />
         </q-card-section>
         
-        <q-card-actions align="right">
+        <q-card-actions align="right" :class="$q.screen.lt.md ? 'q-pa-md' : ''">
           <q-btn flat label="Cancel" color="primary" @click="editLeadDialog = false" />
-          <q-btn flat label="Save" color="primary" @click="saveLeadChanges" :loading="savingLead" />
+          <q-btn unelevated label="Save" color="primary" @click="saveLeadChanges" :loading="savingLead" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -227,6 +629,7 @@ import { ref, onMounted, computed } from 'vue';
 import { apiService } from '../services/api';
 import { Notify } from 'quasar';
 import AppointmentScheduler from '../components/AppointmentScheduler.vue';
+import LeadCard from '../components/LeadCard.vue';
 import { useEventStore } from '../stores/event-store';
 
 interface Lead {
@@ -234,11 +637,39 @@ interface Lead {
   fullName: string;
   email: string;
   phone: string;
-  eventName: string;
+  address: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  };
+  servicesOfInterest: string[];
+  tradeIds?: number[];
+  workTypeIds?: number[];
+  salesRepId?: number;
+  callCenterRepId?: number;
+  divisionId?: number;
+  tempRating?: number;
+  notes?: string;
+  wantsAppointment: boolean;
+  appointmentDetails?: {
+    staffMemberId?: string;
+    preferredDate: string;
+    preferredTime: string;
+    notes?: string;
+  };
+  eventId?: string;
+  eventName?: string;
+  referredBy?: string;
+  referred_by_type?: string;
+  referred_by_id?: number;
+  referred_by_note?: string;
+  leapProspectId?: string;
   leapCustomerId?: string;
   leapJobId?: string;
+  leapAppointmentId?: string;
   syncStatus: "pending" | "synced" | "error";
-  tempRating?: number;
+  syncError?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -254,6 +685,11 @@ const editLeadDialog = ref(false);
 const appointmentDialog = ref(false);
 const selectedLead = ref<Lead | null>(null);
 const eventStore = useEventStore();
+
+// View mode and pagination
+const viewMode = ref('cards'); // 'cards' or 'table'
+const currentPage = ref(1);
+const itemsPerPage = 12;
 
 const columns = [
   {
@@ -331,6 +767,17 @@ const filteredLeads = computed(() => {
   return allLeads.value.filter(lead => lead.eventName === currentEvent.name);
 });
 
+// Computed property for pagination
+const totalPages = computed(() => {
+  return Math.ceil(filteredLeads.value.length / itemsPerPage);
+});
+
+const paginatedLeads = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  return filteredLeads.value.slice(start, end);
+});
+
 onMounted(async () => {
   await fetchLeads();
 });
@@ -384,10 +831,32 @@ function getTempColor(rating: number): string {
 
 function editLead(lead: Lead) {
   selectedLead.value = { ...lead }; // Create a copy to avoid mutating original
-  // Initialize tempRating to 1 if not set
+  
+  // Initialize fields if not set
   if (!selectedLead.value.tempRating) {
     selectedLead.value.tempRating = 1;
   }
+  if (!selectedLead.value.address) {
+    selectedLead.value.address = {
+      street: '',
+      city: '',
+      state: '',
+      zipCode: ''
+    };
+  }
+  if (!selectedLead.value.servicesOfInterest) {
+    selectedLead.value.servicesOfInterest = [];
+  }
+  if (!selectedLead.value.notes) {
+    selectedLead.value.notes = '';
+  }
+  if (!selectedLead.value.tradeIds) {
+    selectedLead.value.tradeIds = [];
+  }
+  if (!selectedLead.value.workTypeIds) {
+    selectedLead.value.workTypeIds = [];
+  }
+  
   editLeadDialog.value = true;
 }
 
