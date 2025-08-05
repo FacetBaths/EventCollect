@@ -89,8 +89,8 @@
           />
 
           <div v-if="form.wantsAppointment" class="q-mt-md">
-            <SimpleAppointmentPicker 
-              @appointment-preference-set="onAppointmentPreferenceSet" 
+            <SimpleAppointmentPicker
+              @appointment-preference-set="onAppointmentPreferenceSet"
             />
           </div>
 
@@ -112,7 +112,7 @@
           </div>
         </q-card-section>
       </q-card>
-      
+
       <!-- Success Section - Shows after lead is saved -->
       <q-card v-if="leadSaved" flat bordered class="form-card q-mt-lg">
         <q-card-section>
@@ -120,7 +120,7 @@
             <q-icon name="check_circle" class="q-mr-sm" />
             Success!
           </div>
-          
+
           <div v-if="savedLeadData" class="q-mb-md">
             <q-banner class="text-white bg-positive q-mb-md" icon="check_circle" rounded>
               <div class="text-subtitle2 q-mb-xs">Lead Saved Successfully!</div>
@@ -131,7 +131,7 @@
               </div>
             </q-banner>
           </div>
-          
+
           <div class="text-center">
             <q-btn
               label="Start New Lead"
@@ -159,6 +159,26 @@ import { useEventStore } from '../stores/event-store';
 
 const eventStore = useEventStore();
 
+// Helper function to get event name with date fallback
+function getEventName(): string {
+  if (eventStore.getCurrentEvent?.name) {
+    return eventStore.getCurrentEvent.name;
+  }
+  // Fallback to "Event" + current date/time
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+  const timeStr = now.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+  return `Event ${dateStr} ${timeStr}`;
+}
+
 const form = ref<LeadFormData>({
   fullName: '',
   email: '',
@@ -177,11 +197,11 @@ const form = ref<LeadFormData>({
     preferredTime: '',
     notes: '',
   },
-  eventName: 'Web Form Submission',
-  referredBy: eventStore.getCurrentEvent?.name || 'Web Form Submission',
+  eventName: 'Web Form Submission', // Form submission type - stays constant
+  referredBy: getEventName(), // Actual event name or date fallback
   referred_by_type: 'Event',
   referred_by_id: 8,
-  referred_by_note: eventStore.getCurrentEvent?.name || 'Web Form Submission',
+  referred_by_note: getEventName(), // Same as referredBy
 });
 
 const loading = ref(false);
@@ -202,21 +222,21 @@ const isFormValid = computed(() => {
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return '';
-  
+
   // Parse the date string manually to avoid timezone issues
   const parts = dateStr.split('-').map(Number);
   if (parts.length !== 3) return dateStr;
-  
+
   const [year, month, day] = parts;
   if (!year || !month || !day) return dateStr;
-  
+
   const date = new Date(year, month - 1, day); // month is 0-indexed
-  
-  return date.toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
+
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
   });
 }
 
@@ -238,7 +258,7 @@ function onSalesRepChanged(salesRepId: number | null) {
 function onAppointmentPreferenceSet(appointmentData: any) {
   // Store the appointment preference in the form
   form.value.appointmentDetails = appointmentData;
-  
+
   Notify.create({
     type: 'positive',
     message: 'Appointment preference saved! You can now submit the lead.',
@@ -270,7 +290,7 @@ async function submitForm() {
       wantsAppointment: form.value.wantsAppointment,
       appointmentDetails: form.value.wantsAppointment && form.value.appointmentDetails ? form.value.appointmentDetails : undefined
     };
-    
+
     const response = await apiService.submitLead(formDataWithTrades);
 
     if (response.success) {
@@ -335,11 +355,11 @@ function resetForm() {
       preferredTime: '',
       notes: '',
     },
-    eventName: 'Web Form Submission',
-    referredBy: eventStore.getCurrentEvent?.name || 'Web Form Submission',
+    eventName: 'Web Form Submission', // Form submission type - stays constant
+    referredBy: getEventName(), // Actual event name or date fallback
     referred_by_type: 'Event',
     referred_by_id: 8,
-    referred_by_note: eventStore.getCurrentEvent?.name || 'Web Form Submission',
+    referred_by_note: getEventName(), // Same as referredBy
   };
 
   // Reset other form state
