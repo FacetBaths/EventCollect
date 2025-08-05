@@ -16,6 +16,7 @@ export interface LeadFormData {
   salesRepId?: number | undefined; // LEAP CRM sales rep ID
   callCenterRepId?: number; // LEAP CRM call center rep ID
   divisionId?: number; // LEAP CRM division ID
+  tempRating?: number; // Prospect temperature rating 1-10
   notes: string;
   wantsAppointment: boolean;
   appointmentDetails?: {

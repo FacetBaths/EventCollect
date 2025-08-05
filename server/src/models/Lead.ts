@@ -17,6 +17,7 @@ export interface ILead extends Document {
   salesRepId?: number; // LEAP CRM sales rep ID
   callCenterRepId?: number; // LEAP CRM call center rep ID
   divisionId?: number; // LEAP CRM division ID
+  tempRating?: number; // Prospect temperature rating 1-10
   notes?: string;
   wantsAppointment: boolean;
   appointmentDetails?: {
@@ -103,6 +104,12 @@ const leadSchema = new Schema<ILead>(
     divisionId: {
       type: Number,
       default: 6496, // Default to Renovation division
+    },
+    tempRating: {
+      type: Number,
+      min: 1,
+      max: 10,
+      default: null,
     },
     notes: {
       type: String,

@@ -55,6 +55,16 @@
                   size="sm"
                 />
               </template>
+              <template v-else-if="col.name === 'tempRating'">
+                <q-chip
+                  v-if="col.value"
+                  :color="getTempColor(col.value)"
+                  text-color="white"
+                  :label="`${col.value}/10`"
+                  size="sm"
+                />
+                <span v-else class="text-grey-5">-</span>
+              </template>
               <template v-else>
                 {{ col.value }}
               </template>
@@ -125,6 +135,32 @@
               <div v-if="selectedLead.syncStatus === 'error'" class="text-negative text-caption q-mb-md">
                 Last sync error: {{ selectedLead.syncError || 'Unknown error' }}
               </div>
+              
+              <!-- Temp Rating Gauge -->
+              <div class="q-mb-md">
+                <div class="text-subtitle2 q-mb-sm">Prospect Temperature</div>
+                <div class="row items-center q-gutter-sm">
+                  <div class="col">
+                    <q-slider
+                      v-model="selectedLead.tempRating"
+                      :min="1"
+                      :max="10"
+                      :step="1"
+                      :color="getTempColor(selectedLead.tempRating || 1)"
+                      track-color="grey-3"
+                      thumb-color="white"
+                      :markers="true"
+                      snap
+                    />
+                  </div>
+                  <div class="text-weight-bold" :class="`text-${getTempColor(selectedLead.tempRating || 1)}`">
+                    {{ selectedLead.tempRating || 1 }}/10
+                  </div>
+                </div>
+                <div class="text-caption text-grey-6 q-mt-xs">
+                  1-3: Cold (Blue) | 4-7: Warm (Orange) | 8-10: Hot (Red)
+                </div>
+              </div>
             </div>
           </div>
           
@@ -179,6 +215,7 @@ interface Lead {
   leapCustomerId?: string;
   leapJobId?: string;
   syncStatus: "pending" | "synced" | "error";
+  tempRating?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -231,6 +268,14 @@ const columns = [
     label: 'LEAP Status',
     field: 'syncStatus',
     sortable: true,
+  },
+  {
+    name: 'tempRating',
+    align: 'center',
+    label: 'Temp',
+    field: 'tempRating',
+    sortable: true,
+    format: (val: number) => val ? `${val}/10` : '-',
   },
   {
     name: 'createdAt',
@@ -307,8 +352,23 @@ function getSyncStatusColor(status: string) {
   }
 }
 
+function getTempColor(rating: number): string {
+  if (rating >= 1 && rating <= 3) {
+    return 'blue';
+  } else if (rating >= 4 && rating <= 7) {
+    return 'orange';
+  } else if (rating >= 8 && rating <= 10) {
+    return 'red';
+  }
+  return 'grey';
+}
+
 function editLead(lead: Lead) {
   selectedLead.value = { ...lead }; // Create a copy to avoid mutating original
+  // Initialize tempRating to 1 if not set
+  if (!selectedLead.value.tempRating) {
+    selectedLead.value.tempRating = 1;
+  }
   editLeadDialog.value = true;
 }
 

@@ -1036,8 +1036,9 @@ export class LeapService {
     tradeIds?: number[]; // LEAP CRM trade IDs
     workTypeIds?: number[]; // LEAP CRM work type IDs (specific services within trades)
     salesRepId?: number; // LEAP CRM sales rep ID
-    callCenterRepId?: number; // LEAP CRM call center rep ID
-    divisionId?: number; // LEAP CRM division ID
+        callCenterRepId?: number; // LEAP CRM call center rep ID
+        divisionId?: number; // LEAP CRM division ID
+        tempRating?: number; // Prospect temperature rating 1-10
     notes: string;
     eventName: string;
     referredBy?: string; // Source/referrer (usually the event name)
@@ -1071,7 +1072,7 @@ export class LeapService {
         return stateMap[state.toUpperCase()] || 13; // Default to IL (13)
       };
 
-      // Build job description with appointment details and notes
+      // Build job description with appointment details, notes, and temp rating
       const buildJobDescription = (data: any): string => {
         let description = data.notes || `Lead from ${data.eventName}`;
         
@@ -1102,6 +1103,11 @@ export class LeapService {
         else if (data.appointmentDetails && data.appointmentDetails.notes && data.appointmentDetails.notes.trim()) {
           description += `\n\n--- APPOINTMENT NOTES ---`;
           description += `\n${data.appointmentDetails.notes.trim()}`;
+        }
+        
+        // Append temp rating if provided
+        if (data.tempRating && data.tempRating >= 1 && data.tempRating <= 10) {
+          description += `\n\nTemp: ${data.tempRating}/10`;
         }
         
         return description;

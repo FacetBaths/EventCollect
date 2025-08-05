@@ -69,6 +69,7 @@ router.post("/", async (req, res) => {
           salesRepId: newLead.salesRepId,
           callCenterRepId: newLead.callCenterRepId,
           divisionId: newLead.divisionId || 6496, // Default to Renovation division
+          tempRating: newLead.tempRating,
           notes: newLead.notes || "",
           eventName: newLead.eventName || "Web Form Submission",
           referredBy: (leadData as any).referredBy,
@@ -251,6 +252,7 @@ router.post("/:id/resync", async (req, res) => {
         salesRepId: lead.salesRepId,
         callCenterRepId: lead.callCenterRepId,
         divisionId: lead.divisionId || 6496,
+        tempRating: lead.tempRating,
         notes: lead.notes || "",
         eventName: lead.eventName || "Web Form Submission",
         appointmentDetails: lead.wantsAppointment ? {
