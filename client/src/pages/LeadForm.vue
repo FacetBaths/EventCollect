@@ -89,7 +89,18 @@
             color="primary"
           />
 
-          <div v-if="form.wantsAppointment" class="q-mt-md">
+          <div v-if="leadSaved && form.wantsAppointment && savedLeadData?.appointmentDetails" class="q-mb-md">
+            <q-banner class="text-white bg-info" icon="event_note" rounded>
+              <div class="text-subtitle2 q-mb-xs">Current Appointment Preference</div>
+              <div>
+                {{ formatDate(savedLeadData.appointmentDetails.preferredDate) }} at {{ savedLeadData.appointmentDetails.preferredTime }}
+              </div>
+              <q-btn flat dense label="Change Preference" @click="showAppointmentPicker" class="q-mt-sm" />
+            </q-banner>
+          </div>
+
+          <!-- Appointment Picker - shown when user wants to change preference -->
+          <div v-if="form.wantsAppointment && showPicker" class="q-mt-md">
             <SimpleAppointmentPicker
               @appointment-preference-set="onAppointmentPreferenceSet"
             />
@@ -210,6 +221,7 @@ const loading = ref(false);
 const selectedTradeIds = ref<number[]>([]);
 const selectedWorkTypeIds = ref<number[]>([]);
 const selectedSalesRepId = ref<number | null>(null);
+const showPicker = ref(true); // Control visibility of the appointment picker
 const leadSaved = ref(false);
 const savedLeadData = ref<any>(null);
 
@@ -262,10 +274,17 @@ function onDivisionIdChanged(divisionId: number | null) {
   console.log('Selected division ID:', divisionId);
 }
 
+function showAppointmentPicker() {
+  showPicker.value = true;
+}
+
 function onAppointmentPreferenceSet(appointmentData: any) {
   // Store the appointment preference in the form
   form.value.appointmentDetails = appointmentData;
 
+  // When user sets a new preference, hide the picker again
+  showPicker.value = false;
+  
   Notify.create({
     type: 'positive',
     message: 'Appointment preference saved! You can now submit the lead.',
@@ -298,12 +317,19 @@ async function submitForm() {
       appointmentDetails: form.value.wantsAppointment && form.value.appointmentDetails ? form.value.appointmentDetails : undefined
     };
 
-    const response = await apiService.submitLead(formDataWithTrades);
+    let response;
+    if (leadSaved.value && savedLeadData.value?._id) {
+      // Update existing lead
+      response = await apiService.updateLead(savedLeadData.value._id, formDataWithTrades);
+    } else {
+      // Create new lead
+      response = await apiService.submitLead(formDataWithTrades);
+    }
 
     if (response.success) {
       Notify.create({
         type: 'positive',
-        message: 'Lead submitted successfully!',
+        message: leadSaved.value ? 'Lead updated successfully!' : 'Lead submitted successfully!',
         timeout: 3000,
       });
 
@@ -329,6 +355,10 @@ async function submitForm() {
       console.log('Lead submitted successfully:', response.data);
     } else {
       throw new Error(response.error || 'Failed to submit lead');
+    }
+    // If lead is saved, hide the picker until the user wants to change it
+    if (leadSaved.value) {
+      showPicker.value = false;
     }
   } catch (error) {
     console.error('Error submitting lead:', error);
@@ -376,6 +406,7 @@ function resetForm() {
   selectedSalesRepId.value = null;
   leadSaved.value = false;
   savedLeadData.value = null;
+  showPicker.value = true;
 }
 
 </script>

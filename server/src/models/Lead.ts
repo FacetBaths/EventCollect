@@ -193,7 +193,7 @@ const leadSchema = new Schema<ILead>(
 );
 
 // Indexes for performance
-leadSchema.index({ email: 1 });
+// leadSchema.index({ email: 1 }, { unique: true }); // Temporarily disabled to allow duplicate emails
 leadSchema.index({ phone: 1 });
 leadSchema.index({ syncStatus: 1 });
 leadSchema.index({ leapProspectId: 1 });

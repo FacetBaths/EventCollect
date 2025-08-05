@@ -28,7 +28,7 @@
                   </q-item-section>
                   <q-item-section>Edit</q-item-section>
                 </q-item>
-                <q-item clickable v-close-popup @click="$emit('set-appointment', lead)">
+                <q-item v-if="!isAppointmentSet" clickable v-close-popup @click="$emit('set-appointment', lead)">
                   <q-item-section avatar>
                     <q-icon name="event" />
                   </q-item-section>
@@ -66,9 +66,14 @@
           {{ lead.tempRating || 'N/A' }}/10
         </q-chip>
 
-        <q-chip v-if="lead.wantsAppointment" color="info" text-color="white" size="sm" dense>
+        <q-chip v-if="lead.wantsAppointment && !isAppointmentSet" color="info" text-color="white" size="sm" dense>
           <q-avatar icon="event_available" size="sm" />
-          Appt
+          Appt Requested
+        </q-chip>
+        
+        <q-chip v-if="isAppointmentSet" color="positive" text-color="white" size="sm" dense>
+          <q-avatar icon="event_note" size="sm" />
+          Scheduled
         </q-chip>
         
         <q-chip v-if="lead.notes" color="grey-6" text-color="white" size="sm" dense>
@@ -82,7 +87,7 @@
       <q-btn flat dense color="primary" icon="edit" @click="$emit('edit', lead)" size="sm">
         <q-tooltip>Edit</q-tooltip>
       </q-btn>
-      <q-btn flat dense color="secondary" icon="event" @click="$emit('set-appointment', lead)" size="sm">
+      <q-btn v-if="!isAppointmentSet" flat dense color="secondary" icon="event" @click="$emit('set-appointment', lead)" size="sm">
         <q-tooltip>Set Appointment</q-tooltip>
       </q-btn>
       <q-btn v-if="lead.syncStatus === 'error'" flat dense color="warning" icon="sync" @click="$emit('resync', lead._id)" size="sm">
@@ -97,13 +102,34 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps } from 'vue';
+import { defineProps, computed } from 'vue';
 
 const props = defineProps({
   lead: {
     type: Object as () => any,
     required: true,
   },
+});
+
+// Computed property to check if appointment preference has been set
+const isAppointmentSet = computed(() => {
+  const { appointmentDetails, leapAppointmentId } = props.lead;
+  
+  // If synced to CRM with appointment ID, it's definitely set
+  if (leapAppointmentId) {
+    return true;
+  }
+  
+  // If appointment details have meaningful data, consider it set
+  if (appointmentDetails) {
+    return (
+      appointmentDetails.staffMemberId ||
+      appointmentDetails.preferredDate ||
+      appointmentDetails.preferredTime
+    );
+  }
+  
+  return false;
 });
 
 function getSyncStatusColor(status: string) {
