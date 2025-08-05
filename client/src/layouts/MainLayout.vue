@@ -94,7 +94,7 @@
 import { ref, computed } from 'vue';
 import { Notify } from 'quasar';
 import { apiService } from '../services/api';
-// import { useEventStore } from 'stores/event-store';
+import { useEventStore } from 'stores/event-store';
 
 interface NavigationLink {
   title: string;
@@ -136,11 +136,12 @@ const navigationLinks: NavigationLink[] = [
   },
 ];
 
-// const eventStore = useEventStore();
 const leftDrawerOpen = ref(false);
 const resyncLoading = ref(false);
+const eventStore = useEventStore();
 
-const currentEvent = computed(() => 'Ribfest--LITH'); // Temporary placeholder
+// Access the current event from the store
+const currentEvent = computed(() => eventStore.getCurrentEvent?.name || 'No event selected');
 
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value;

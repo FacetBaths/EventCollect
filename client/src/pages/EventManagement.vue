@@ -136,7 +136,17 @@ const fetchEvents = async () => {
   try {
     const response = await apiService.getEvents();
     if (response.success && response.data) {
-      events.value = response.data as Event[];
+      const fetchedEvents = response.data as Event[];
+      events.value = fetchedEvents;
+      
+      // Sync events to the store
+      eventStore.setEvents(fetchedEvents);
+      
+      // Set the first active event as current if no current event is set
+      const activeEvent = fetchedEvents.find(event => event.isActive);
+      if (activeEvent && !eventStore.getCurrentEvent) {
+        eventStore.setCurrentEvent(activeEvent);
+      }
     }
   } catch (error) {
     console.error("Error fetching events:", error);
@@ -180,6 +190,9 @@ const createEvent = async () => {
         timeout: 3000
       });
       
+      // Store the isActive flag before resetting the form
+      const wasActive = newEvent.value.isActive;
+      
       // Reset form
       newEvent.value = {
         name: '',
@@ -190,6 +203,12 @@ const createEvent = async () => {
       
       // Refresh events list
       await fetchEvents();
+      
+      // If this new event was marked as active, set it as current
+      if (wasActive && response.data) {
+        const createdEvent = response.data as Event;
+        eventStore.setCurrentEvent(createdEvent);
+      }
     } else {
       throw new Error(response.error || 'Failed to create event');
     }
