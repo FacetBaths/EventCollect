@@ -189,7 +189,7 @@ const form = ref<LeadFormData>({
     state: '',
     zipCode: '',
   },
-  servicesOfInterest: ['BATH REMODEL'], // Default to BATH REMODEL
+  servicesOfInterest: ['Full Remodel'], // Default to Full Remodel work type (ID: 91139)
   notes: '',
   wantsAppointment: false,
   appointmentDetails: {
@@ -347,7 +347,7 @@ function resetForm() {
       state: '',
       zipCode: '',
     },
-    servicesOfInterest: ['BATH REMODEL'], // Default back to BATH REMODEL
+    servicesOfInterest: ['Full Remodel'], // Default back to Full Remodel work type (ID: 91139)
     notes: '',
     wantsAppointment: false,
     appointmentDetails: {

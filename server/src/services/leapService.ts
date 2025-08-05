@@ -895,6 +895,12 @@ export class LeapService {
       if (job.other_trade_type_description) {
         formData.append('job[other_trade_type_description]', job.other_trade_type_description);
       }
+      // Add work type IDs if provided
+      if ((job as any).work_types) {
+        (job as any).work_types.forEach((workTypeId: number) => {
+          formData.append('job[work_types][]', workTypeId.toString());
+        });
+      }
       if (job.call_required !== undefined) {
         formData.append('job[call_required]', job.call_required.toString());
       }
@@ -1158,6 +1164,7 @@ export class LeapService {
           estimator_ids: leadData.salesRepId ? [leadData.salesRepId] : [],
           description: buildJobDescription(leadData),
           trades: (leadData.tradeIds && leadData.tradeIds.length > 0) ? leadData.tradeIds : [105], // Default to BATH REMODEL (105)
+          work_types: (leadData.workTypeIds && leadData.workTypeIds.length > 0) ? leadData.workTypeIds : [91139], // Default to Full Remodel (91139)
           other_trade_type_description: leadData.servicesOfInterest.join(", "),
           call_required: 0,
           appointment_required: leadData.appointmentDetails ? 1 : 0,
