@@ -1,20 +1,44 @@
 <template>
   <q-page class="q-pa-md">
     <div class="text-h4 text-primary text-center">Leads Dashboard</div>
-<div class="q-mb-md">
-      <q-table
-        :rows="leads"
+    
+    <!-- Filter Controls -->
+    <div class="row items-center q-mb-md q-gutter-md">
+      <q-toggle
+        v-model="showAllEvents"
+        label="Show All Events"
+        color="primary"
+      />
+      <q-btn 
+        label="Refresh" 
+        @click="fetchLeads" 
+        color="primary" 
+        icon="refresh"
+        :loading="loading"
+      />
+      <q-btn 
+        label="Sync All Pending"
+        @click="syncAllpending"
+        color="orange"
+        icon="sync"
+        :loading="syncingAll"
+      />
+      <q-space />
+      <div class="text-caption">
+        Showing {{ filteredLeads.length }} of {{ allLeads.length }} leads
+      </div>
+    </div>
+
+    <div class="q-mb-md">
+      <q-table
+        :rows="filteredLeads"
         :columns="columns"
         row-key="_id"
         :loading="loading"
         flat
         bordered
+        :pagination="{ rowsPerPage: 20 }"
       >
-        <template v-slot:top="">
-          <q-btn label="Refresh" @click="fetchLeads" color="primary" flat class="q-ml-sm">
-            <template v-slot:loading>Refreshing...</template>
-          </q-btn>
-        </template>
 
         <template v-slot:body="props">
           <q-tr :props="props">
