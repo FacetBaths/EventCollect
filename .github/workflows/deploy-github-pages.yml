@@ -26,13 +26,14 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'yarn'
-        cache-dependency-path: 'client/yarn.lock'
+        cache-dependency-path: 'yarn.lock'
 
     - name: Install dependencies
       run: |
-        cd client && yarn install
+        yarn install --frozen-lockfile
+        cd client && yarn install --frozen-lockfile
 
     - name: Build frontend
       run: |
