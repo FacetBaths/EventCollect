@@ -40,6 +40,11 @@ router.post("/", async (req, res) => {
       }
     }
     
+    // Default divisionId if not provided
+    if (!leadData.divisionId) {
+      leadData.divisionId = 6496; // Renovation division ID
+    }
+
     const newLead = new Lead(leadData);
     await newLead.save();
     
@@ -138,6 +143,182 @@ router.post("/", async (req, res) => {
         error: "Error saving lead",
         message: error.message,
       });
+  }
+});
+
+// PUT /api/leads/:id
+router.put("/:id", async (req, res) => {
+  try {
+    const leadId = req.params.id;
+    const updateData = req.body;
+    
+    const updatedLead = await Lead.findByIdAndUpdate(leadId, updateData, { new: true });
+    
+    if (!updatedLead) {
+      return res.status(404).json({
+        success: false,
+        error: "Lead not found",
+      });
+    }
+    
+    logger.info("Lead updated successfully", { leadId, updateData });
+    res.json({ success: true, data: updatedLead });
+  } catch (error: any) {
+    logger.error("Error updating lead", {
+      error: error.message,
+      stack: error.stack,
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: "Error updating lead",
+      message: error.message,
+    });
+  }
+});
+
+// DELETE /api/leads/:id
+router.delete("/:id", async (req, res) => {
+  try {
+    const leadId = req.params.id;
+    
+    const deletedLead = await Lead.findByIdAndDelete(leadId);
+    
+    if (!deletedLead) {
+      return res.status(404).json({
+        success: false,
+        error: "Lead not found",
+      });
+    }
+    
+    logger.info("Lead deleted successfully", { leadId, leadName: deletedLead.fullName });
+    res.json({ 
+      success: true, 
+      message: `Lead "${deletedLead.fullName}" deleted successfully`,
+      data: deletedLead 
+    });
+  } catch (error: any) {
+    logger.error("Error deleting lead", {
+      error: error.message,
+      stack: error.stack,
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: "Error deleting lead",
+      message: error.message,
+    });
+  }
+});
+
+// POST /api/leads/:id/resync
+router.post("/:id/resync", async (req, res) => {
+  try {
+    const leadId = req.params.id;
+    
+    const lead = await Lead.findById(leadId);
+    if (!lead) {
+      return res.status(404).json({
+        success: false,
+        error: "Lead not found",
+      });
+    }
+    
+    // Only resync if LEAP sync is enabled
+    if (process.env.ENABLE_LEAP_SYNC !== "true") {
+      return res.status(400).json({
+        success: false,
+        error: "LEAP sync is not enabled",
+      });
+    }
+    
+    try {
+      logger.info("Resyncing lead to LEAP CRM", { leadId });
+      
+      const syncResult = await leapService.syncLead({
+        fullName: lead.fullName,
+        email: lead.email,
+        phone: lead.phone,
+        address: {
+          street: lead.address.street,
+          city: lead.address.city,
+          state: lead.address.state,
+          zipCode: lead.address.zipCode,
+        },
+        servicesOfInterest: lead.servicesOfInterest,
+        tradeIds: lead.tradeIds,
+        workTypeIds: lead.workTypeIds,
+        salesRepId: lead.salesRepId,
+        callCenterRepId: lead.callCenterRepId,
+        divisionId: lead.divisionId || 6496,
+        notes: lead.notes || "",
+        eventName: lead.eventName || "Web Form Submission",
+        appointmentDetails: lead.wantsAppointment ? {
+          preferredDate: lead.appointmentDetails?.preferredDate || "",
+          preferredTime: lead.appointmentDetails?.preferredTime || "",
+          notes: lead.appointmentDetails?.notes || "",
+        } : undefined,
+        leadId: lead._id.toString(),
+      });
+      
+      // Update lead with sync results
+      const prospectId = syncResult.data?.id || syncResult.data?.prospect?.id;
+      lead.leapProspectId = prospectId?.toString();
+      
+      const customerData = syncResult.data?.customer || syncResult.data;
+      if (customerData?.id) {
+        lead.leapCustomerId = customerData.id.toString();
+      }
+      
+      const jobData = syncResult.data?.job || syncResult.data;
+      if (jobData?.id) {
+        lead.leapJobId = jobData.id.toString();
+      }
+      
+      lead.syncStatus = "synced";
+      lead.syncError = undefined;
+      await lead.save();
+      
+      logger.info("Lead resynced to LEAP CRM successfully", { 
+        leadId,
+        prospectId: lead.leapProspectId,
+      });
+      
+      res.json({ 
+        success: true, 
+        message: "Lead resynced successfully",
+        data: lead 
+      });
+    } catch (syncError: any) {
+      logger.error("Failed to resync lead to LEAP CRM", {
+        leadId,
+        error: syncError.message,
+        stack: syncError.stack,
+      });
+      
+      // Update lead with error status
+      lead.syncStatus = "error";
+      lead.syncError = syncError.message;
+      await lead.save();
+      
+      res.status(500).json({
+        success: false,
+        error: "Failed to resync lead to LEAP CRM",
+        message: syncError.message,
+        data: lead
+      });
+    }
+  } catch (error: any) {
+    logger.error("Error resyncing lead", {
+      error: error.message,
+      stack: error.stack,
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: "Error resyncing lead",
+      message: error.message,
+    });
   }
 });
 

@@ -69,6 +69,9 @@
               <q-btn flat icon="sync" @click="resyncLead(props.row._id)" color="orange" size="sm" v-if="props.row.syncStatus === 'error'">
                 <q-tooltip>Resync to LEAP</q-tooltip>
               </q-btn>
+              <q-btn flat icon="delete" @click="deleteLead(props.row._id)" color="negative" size="sm">
+                <q-tooltip>Delete Lead</q-tooltip>
+              </q-btn>
             </q-td>
           </q-tr>
         </template>
@@ -83,29 +86,60 @@
         </q-card-section>
         
         <q-card-section v-if="selectedLead" class="q-pt-none">
-          <q-input
-            filled
-            v-model="selectedLead.fullName"
-            label="Full Name"
-            class="q-mb-md"
-          />
-          <q-input
-            filled
-            v-model="selectedLead.email"
-            label="Email"
-            class="q-mb-md"
-          />
-          <q-input
-            filled
-            v-model="selectedLead.phone"
-            label="Phone"
-            class="q-mb-md"
+          <div class="row q-gutter-md">
+            <div class="col">
+              <q-input
+                filled
+                v-model="selectedLead.fullName"
+                label="Full Name"
+                class="q-mb-md"
+              />
+              <q-input
+                filled
+                v-model="selectedLead.email"
+                label="Email"
+                type="email"
+                class="q-mb-md"
+              />
+              <q-input
+                filled
+                v-model="selectedLead.phone"
+                label="Phone"
+                class="q-mb-md"
+              />
+            </div>
+            <div class="col">
+              <q-input
+                filled
+                v-model="selectedLead.eventName"
+                label="Event Name"
+                class="q-mb-md"
+                readonly
+              />
+              <q-chip
+                :color="getSyncStatusColor(selectedLead.syncStatus)"
+                text-color="white"
+                :label="selectedLead.syncStatus.toUpperCase()"
+                class="q-mb-md"
+              />
+              <div v-if="selectedLead.syncStatus === 'error'" class="text-negative text-caption q-mb-md">
+                Last sync error: {{ selectedLead.syncError || 'Unknown error' }}
+              </div>
+            </div>
+          </div>
+          
+          <q-separator class="q-my-md" />
+          
+          <q-checkbox
+            v-model="resyncAfterSave"
+            label="Resync to LEAP after saving changes"
+            color="primary"
           />
         </q-card-section>
         
         <q-card-actions align="right">
           <q-btn flat label="Cancel" color="primary" @click="editLeadDialog = false" />
-          <q-btn flat label="Save" color="primary" @click="saveLeadChanges" />
+          <q-btn flat label="Save" color="primary" @click="saveLeadChanges" :loading="savingLead" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -131,7 +165,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { apiService } from '../services/api';
 import { Notify } from 'quasar';
 import AppointmentScheduler from '../components/AppointmentScheduler.vue';
@@ -149,8 +183,14 @@ interface Lead {
   updatedAt: string;
 }
 
+const allLeads = ref<Lead[]>([]);
 const leads = ref<Lead[]>([]);
 const loading = ref(false);
+const syncingAll = ref(false);
+const savingLead = ref(false);
+const resyncAfterSave = ref(false);
+const showAllEvents = ref(false);
+const activeEventName = ref<string>('');
 const editLeadDialog = ref(false);
 const appointmentDialog = ref(false);
 const selectedLead = ref<Lead | null>(null);
@@ -208,17 +248,37 @@ const columns = [
   },
 ];
 
-onMounted(() => {
-  fetchLeads();
+// Computed property to filter leads by active event
+const filteredLeads = computed(() => {
+  if (showAllEvents.value) {
+    return allLeads.value;
+  }
+  return allLeads.value.filter(lead => lead.eventName === activeEventName.value);
 });
+
+onMounted(async () => {
+  await fetchActiveEvent();
+  await fetchLeads();
+});
+
+async function fetchActiveEvent() {
+  try {
+    const response = await apiService.getActiveEvent();
+    if (response.success && response.data) {
+      activeEventName.value = response.data.name;
+    }
+  } catch (error) {
+    console.warn('Could not fetch active event');
+  }
+}
 
 async function fetchLeads() {
   loading.value = true;
   try {
     const response = await apiService.getLeads();
     if (response.success) {
-      leads.value = response.data || [];
-      console.log('Leads fetched successfully:', leads.value);
+      allLeads.value = response.data || [];
+      console.log('Leads fetched successfully:', allLeads.value);
     } else {
       throw new Error(response.error || 'Failed to fetch leads');
     }
@@ -260,23 +320,44 @@ function setAppointment(lead: Lead) {
 async function saveLeadChanges() {
   if (!selectedLead.value) return;
   
+  savingLead.value = true;
+  
   try {
-    // Here you would call an API to update the lead
-    // For now, we'll just show a success message
-    Notify.create({
-      type: 'positive',
-      message: 'Lead updated successfully!',
-      timeout: 3000,
-    });
+    const response = await apiService.updateLead(selectedLead.value._id, selectedLead.value);
     
-    // Update the lead in the local array
-    const index = leads.value.findIndex(l => l._id === selectedLead.value?._id);
-    if (index !== -1) {
-      leads.value[index] = { ...selectedLead.value };
+    if (response.success) {
+      let message = 'Lead updated successfully!';
+      
+      // If resync option is checked, also resync the lead
+      if (resyncAfterSave.value) {
+        try {
+          const resyncResponse = await apiService.resyncLead(selectedLead.value._id);
+          if (resyncResponse.success) {
+            message += ' Lead resynced to LEAP.';
+          } else {
+            message += ' (Resync failed - check status)';
+          }
+        } catch (resyncError) {
+          console.error('Resync failed:', resyncError);
+          message += ' (Resync failed - check status)';
+        }
+      }
+      
+      Notify.create({
+        type: 'positive',
+        message,
+        timeout: 4000,
+      });
+      
+      editLeadDialog.value = false;
+      selectedLead.value = null;
+      resyncAfterSave.value = false;
+      
+      // Refresh the leads list to show updated data
+      await fetchLeads();
+    } else {
+      throw new Error(response.error || 'Failed to update lead');
     }
-    
-    editLeadDialog.value = false;
-    selectedLead.value = null;
   } catch (error) {
     console.error('Error updating lead:', error);
     Notify.create({
@@ -284,6 +365,8 @@ async function saveLeadChanges() {
       message: 'Failed to update lead. Please try again.',
       timeout: 3000,
     });
+  } finally {
+    savingLead.value = false;
   }
 }
 
@@ -330,23 +413,84 @@ async function onAppointmentScheduled(appointmentData: any) {
   }
 }
 
-async function resyncLead(leadId: string) {
+async function syncAllpending() {
+  syncingAll.value = true;
   try {
-    // Here you would call an API to resync the lead to LEAP
-    // For now, we'll just show a success message
+    const pendingLeads = allLeads.value.filter(lead => lead.syncStatus === 'pending');
+    
+    if (pendingLeads.length === 0) {
+      Notify.create({
+        type: 'info',
+        message: 'No pending leads to sync.',
+        timeout: 3000,
+      });
+      return;
+    }
+
+    // This would ideally call a batch sync API endpoint
+    // For now, we'll simulate the sync process
     Notify.create({
       type: 'positive',
-      message: 'Lead resync initiated. Please check status in a moment.',
+      message: `Syncing ${pendingLeads.length} pending leads...`,
       timeout: 3000,
     });
     
-    // Refresh the leads list
+    // Refresh leads after sync
     await fetchLeads();
+  } catch (error) {
+    console.error('Error syncing all pending leads:', error);
+    Notify.create({
+      type: 'negative',
+      message: 'Failed to sync pending leads.',
+      timeout: 3000,
+    });
+  } finally {
+    syncingAll.value = false;
+  }
+}
+
+async function resyncLead(leadId: string) {
+  try {
+    const response = await apiService.resyncLead(leadId);
+
+    if (response.success) {
+      Notify.create({
+        type: 'positive',
+        message: 'Lead resynced successfully.',
+        timeout: 3000,
+      });
+      await fetchLeads();
+    } else {
+      throw new Error(response.error || 'Failed to resync lead');
+    }
   } catch (error) {
     console.error('Error resyncing lead:', error);
     Notify.create({
       type: 'negative',
       message: 'Failed to resync lead. Please try again.',
+      timeout: 3000,
+    });
+  }
+}
+async function deleteLead(leadId: string) {
+  try {
+    const response = await apiService.deleteLead(leadId);
+
+    if (response.success) {
+      Notify.create({
+        type: 'positive',
+        message: response.message || 'Lead deleted successfully!',
+        timeout: 3000,
+      });
+      await fetchLeads();
+    } else {
+      throw new Error(response.error || 'Failed to delete lead');
+    }
+  } catch (error) {
+    console.error('Error deleting lead:', error);
+    Notify.create({
+      type: 'negative',
+      message: 'Failed to delete lead. Please try again.',
       timeout: 3000,
     });
   }

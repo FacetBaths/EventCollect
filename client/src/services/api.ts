@@ -70,6 +70,21 @@ export const apiService = {
     return response.data;
   },
 
+  async updateLead(id: string, leadData: any): Promise<ApiResponse<any>> {
+    const response = await api.put(`/leads/${id}`, leadData);
+    return response.data;
+  },
+
+  async deleteLead(id: string): Promise<ApiResponse<any>> {
+    const response = await api.delete(`/leads/${id}`);
+    return response.data;
+  },
+
+  async resyncLead(id: string): Promise<ApiResponse<any>> {
+    const response = await api.post(`/leads/${id}/resync`);
+    return response.data;
+  },
+
   // LEAP CRM sync
   async testLeapConnection(): Promise<ApiResponse<any>> {
     const response = await api.get('/leap-sync/test-connection');
