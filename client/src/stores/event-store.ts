@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { apiService } from '../services/api';
 // import type { Event } from '@eventcollect/shared';
 
 // Temporary Event type until we set up the shared package
@@ -62,6 +63,59 @@ export const useEventStore = defineStore('event', () => {
     error.value = null;
   }
 
+  // Load active event from server
+  async function loadActiveEvent() {
+    try {
+      setLoading(true);
+      clearError();
+      
+      const response = await apiService.getActiveEvent();
+      
+      if (response.success && response.data) {
+        setCurrentEvent(response.data);
+        console.log('Active event loaded:', response.data.name);
+      } else {
+        setCurrentEvent(null);
+        console.log('No active event found');
+      }
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to load active event';
+      setError(errorMessage);
+      console.error('Error loading active event:', errorMessage);
+      setCurrentEvent(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Load all events from server
+  async function loadEvents() {
+    try {
+      setLoading(true);
+      clearError();
+      
+      const response = await apiService.getEvents();
+      
+      if (response.success && response.data) {
+        setEvents(response.data);
+        
+        // Also set the current active event if not already set
+        if (!currentEvent.value) {
+          const activeEvent = response.data.find((event: Event) => event.isActive);
+          if (activeEvent) {
+            setCurrentEvent(activeEvent);
+          }
+        }
+      }
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to load events';
+      setError(errorMessage);
+      console.error('Error loading events:', errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return {
     // State
     currentEvent,
@@ -85,5 +139,7 @@ export const useEventStore = defineStore('event', () => {
     setLoading,
     setError,
     clearError,
+    loadActiveEvent,
+    loadEvents,
   };
 });

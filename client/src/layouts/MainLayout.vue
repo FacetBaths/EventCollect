@@ -141,7 +141,12 @@ const resyncLoading = ref(false);
 const eventStore = useEventStore();
 
 // Access the current event from the store
-const currentEvent = computed(() => eventStore.getCurrentEvent?.name || 'No event selected');
+const currentEvent = computed(() => {
+  if (eventStore.isLoading) {
+    return 'Loading event...';
+  }
+  return eventStore.getCurrentEvent?.name || 'No event selected';
+});
 
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value;
