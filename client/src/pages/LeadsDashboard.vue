@@ -63,37 +63,35 @@
         bordered
         :pagination="{ rowsPerPage: 20 }"
       >
-
-        <template v-slot:body="props">
-          <q-tr :props="props">
-            <q-td
-              v-for="col in props.cols.filter(c => c.name !== 'actions')"
-              :key="col.name"
-              :props="props"
-            >
-              <template v-if="col.name === 'syncStatus'">
-                <q-chip
-                  :color="getSyncStatusColor(col.value)"
-                  text-color="white"
-                  :label="col.value.toUpperCase()"
-                  size="sm"
-                />
-              </template>
-              <template v-else-if="col.name === 'tempRating'">
-                <q-chip
-                  v-if="col.value"
-                  :color="getTempColor(col.value)"
-                  text-color="white"
-                  :label="`${col.value}/10`"
-                  size="sm"
-                />
-                <span v-else class="text-grey-5">-</span>
-              </template>
-              <template v-else>
-                {{ col.value }}
-              </template>
-            </q-td>
-            <q-td align="center" :props="props">
+        <!-- Custom cell rendering for status and temp -->
+        <template v-slot:body-cell-syncStatus="props">
+          <q-td :props="props">
+            <q-chip
+              :color="getSyncStatusColor(props.value)"
+              text-color="white"
+              :label="props.value.toUpperCase()"
+              size="sm"
+            />
+          </q-td>
+        </template>
+        
+        <template v-slot:body-cell-tempRating="props">
+          <q-td :props="props">
+            <q-chip
+              v-if="props.value"
+              :color="getTempColor(props.value)"
+              text-color="white"
+              :label="`${props.value}/10`"
+              size="sm"
+            />
+            <span v-else class="text-grey-5">-</span>
+          </q-td>
+        </template>
+        
+        <!-- Actions column -->
+        <template v-slot:body-cell-actions="props">
+          <q-td :props="props">
+            <div class="q-gutter-xs">
               <q-btn flat icon="edit" @click="editLead(props.row)" color="primary" size="sm">
                 <q-tooltip>Edit Lead</q-tooltip>
               </q-btn>
@@ -106,8 +104,8 @@
               <q-btn flat icon="delete" @click="deleteLead(props.row._id)" color="negative" size="sm">
                 <q-tooltip>Delete Lead</q-tooltip>
               </q-btn>
-            </q-td>
-          </q-tr>
+            </div>
+          </q-td>
         </template>
       </q-table>
     </div>
