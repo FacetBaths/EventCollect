@@ -85,6 +85,11 @@ export const apiService = {
     return response.data;
   },
 
+  async syncPendingLeads(): Promise<ApiResponse<any>> {
+    const response = await api.post('/leads/sync-pending');
+    return response.data;
+  },
+
   // LEAP CRM sync
   async testLeapConnection(): Promise<ApiResponse<any>> {
     const response = await api.get('/leap-sync/test-connection');

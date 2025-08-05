@@ -506,22 +506,45 @@ async function syncAllpending() {
       return;
     }
 
-    // This would ideally call a batch sync API endpoint
-    // For now, we'll simulate the sync process
     Notify.create({
-      type: 'positive',
-      message: `Syncing ${pendingLeads.length} pending leads...`,
-      timeout: 3000,
+      type: 'info',
+      message: `Starting sync of ${pendingLeads.length} pending leads...`,
+      timeout: 2000,
     });
+    
+    const response = await apiService.syncPendingLeads();
+    
+    if (response.success) {
+      const results = response.data;
+      const { totalProcessed, successful, failed } = results;
+      
+      if (successful > 0) {
+        Notify.create({
+          type: 'positive',
+          message: `Bulk sync completed: ${successful} successful${failed > 0 ? `, ${failed} failed` : ''}`,
+          timeout: 5000,
+        });
+      } else if (failed > 0) {
+        Notify.create({
+          type: 'negative',
+          message: `Bulk sync failed: ${failed} leads could not be synced`,
+          timeout: 5000,
+        });
+      }
+      
+      console.log('Bulk sync results:', results);
+    } else {
+      throw new Error(response.error || 'Bulk sync failed');
+    }
     
     // Refresh leads after sync
     await fetchLeads();
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error syncing all pending leads:', error);
     Notify.create({
       type: 'negative',
-      message: 'Failed to sync pending leads.',
-      timeout: 3000,
+      message: error.message || 'Failed to sync pending leads.',
+      timeout: 5000,
     });
   } finally {
     syncingAll.value = false;

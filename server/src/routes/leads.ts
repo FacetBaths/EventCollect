@@ -324,4 +324,150 @@ router.post("/:id/resync", async (req, res) => {
   }
 });
 
+// POST /api/leads/sync-pending - Bulk sync all pending leads
+router.post("/sync-pending", async (req, res) => {
+  try {
+    // Only sync if LEAP sync is enabled
+    if (process.env.ENABLE_LEAP_SYNC !== "true") {
+      return res.status(400).json({
+        success: false,
+        error: "LEAP sync is not enabled",
+      });
+    }
+    
+    // Find all pending leads
+    const pendingLeads = await Lead.find({ syncStatus: "pending" });
+    
+    if (pendingLeads.length === 0) {
+      return res.json({
+        success: true,
+        message: "No pending leads to sync",
+        data: {
+          totalProcessed: 0,
+          successful: 0,
+          failed: 0,
+          results: []
+        }
+      });
+    }
+    
+    logger.info(`Starting bulk sync of ${pendingLeads.length} pending leads`);
+    
+    const results = {
+      totalProcessed: pendingLeads.length,
+      successful: 0,
+      failed: 0,
+      results: [] as any[]
+    };
+    
+    // Process each lead
+    for (const lead of pendingLeads) {
+      try {
+        logger.info("Syncing pending lead to LEAP CRM", { leadId: lead._id });
+        
+        const syncResult = await leapService.syncLead({
+          fullName: lead.fullName,
+          email: lead.email,
+          phone: lead.phone,
+          address: {
+            street: lead.address.street,
+            city: lead.address.city,
+            state: lead.address.state,
+            zipCode: lead.address.zipCode,
+          },
+          servicesOfInterest: lead.servicesOfInterest,
+          tradeIds: lead.tradeIds,
+          workTypeIds: lead.workTypeIds,
+          salesRepId: lead.salesRepId,
+          callCenterRepId: lead.callCenterRepId,
+          divisionId: lead.divisionId || 6496,
+          tempRating: lead.tempRating,
+          notes: lead.notes || "",
+          eventName: lead.eventName || "Web Form Submission",
+          appointmentDetails: lead.wantsAppointment ? {
+            preferredDate: lead.appointmentDetails?.preferredDate || "",
+            preferredTime: lead.appointmentDetails?.preferredTime || "",
+            notes: lead.appointmentDetails?.notes || "",
+          } : undefined,
+          leadId: lead._id?.toString() || lead._id,
+        });
+        
+        // Update lead with sync results
+        const prospectId = syncResult.data?.id || syncResult.data?.prospect?.id;
+        lead.leapProspectId = prospectId?.toString();
+        
+        const customerData = syncResult.data?.customer || syncResult.data;
+        if (customerData?.id) {
+          lead.leapCustomerId = customerData.id.toString();
+        }
+        
+        const jobData = syncResult.data?.job || syncResult.data;
+        if (jobData?.id) {
+          lead.leapJobId = jobData.id.toString();
+        }
+        
+        lead.syncStatus = "synced";
+        lead.syncError = undefined;
+        await lead.save();
+        
+        results.successful++;
+        results.results.push({
+          leadId: lead._id,
+          leadName: lead.fullName,
+          status: "success",
+          prospectId: lead.leapProspectId
+        });
+        
+        logger.info("Pending lead synced successfully", { 
+          leadId: lead._id,
+          prospectId: lead.leapProspectId,
+        });
+      } catch (syncError: any) {
+        logger.error("Failed to sync pending lead", {
+          leadId: lead._id,
+          error: syncError.message,
+          stack: syncError.stack,
+        });
+        
+        // Update lead with error status
+        lead.syncStatus = "error";
+        lead.syncError = syncError.message;
+        await lead.save();
+        
+        results.failed++;
+        results.results.push({
+          leadId: lead._id,
+          leadName: lead.fullName,
+          status: "error",
+          error: syncError.message
+        });
+      }
+    }
+    
+    logger.info("Bulk sync completed", {
+      totalProcessed: results.totalProcessed,
+      successful: results.successful,
+      failed: results.failed
+    });
+    
+    const hasErrors = results.failed > 0;
+    res.status(hasErrors ? 207 : 200).json({ // 207 = Multi-Status for partial success
+      success: results.successful > 0,
+      message: `Bulk sync completed: ${results.successful} successful, ${results.failed} failed`,
+      data: results
+    });
+  } catch (error: any) {
+    logger.error("Error in bulk sync operation", {
+      error: error.message,
+      stack: error.stack,
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: "Error during bulk sync operation",
+      message: error.message,
+    });
+  }
+});
+
 export default router;
