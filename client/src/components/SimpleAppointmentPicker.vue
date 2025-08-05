@@ -185,7 +185,9 @@ function confirmAppointment() {
 }
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
+  // Parse date safely to avoid timezone issues
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day, 12, 0, 0); // Use noon to avoid timezone edge cases
   return date.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
