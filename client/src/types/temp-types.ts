@@ -15,6 +15,7 @@ export interface LeadFormData {
   workTypeIds?: number[]; // LEAP CRM work type IDs
   salesRepId?: number | undefined; // LEAP CRM sales rep ID
   callCenterRepId?: number; // LEAP CRM call center rep ID
+  divisionId?: number; // LEAP CRM division ID
   notes: string;
   wantsAppointment: boolean;
   appointmentDetails?: {

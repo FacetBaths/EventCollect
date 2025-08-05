@@ -1037,6 +1037,7 @@ export class LeapService {
     workTypeIds?: number[]; // LEAP CRM work type IDs (specific services within trades)
     salesRepId?: number; // LEAP CRM sales rep ID
     callCenterRepId?: number; // LEAP CRM call center rep ID
+    divisionId?: number; // LEAP CRM division ID
     notes: string;
     eventName: string;
     referredBy?: string; // Source/referrer (usually the event name)
@@ -1119,6 +1120,7 @@ export class LeapService {
         ],
         company_name: leadData.eventName, // Use event name as company name for tracking
         rep_id: leadData.salesRepId || leadData.callCenterRepId || 88443, // Default to BDC Rep
+        division_id: leadData.divisionId || 6496, // Default to Renovation division
         referred_by_type: "other", // Always use 'other' for events
         referred_by_note: leadData.eventName, // Event name goes in the note field
         temp_id: Math.floor(Math.random() * 1000), // Generate a temp ID

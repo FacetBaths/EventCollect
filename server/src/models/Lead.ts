@@ -16,6 +16,7 @@ export interface ILead extends Document {
   workTypeIds?: number[]; // LEAP CRM work type IDs (specific services within trades)
   salesRepId?: number; // LEAP CRM sales rep ID
   callCenterRepId?: number; // LEAP CRM call center rep ID
+  divisionId?: number; // LEAP CRM division ID
   notes?: string;
   wantsAppointment: boolean;
   appointmentDetails?: {
@@ -98,6 +99,10 @@ const leadSchema = new Schema<ILead>(
     callCenterRepId: {
       type: Number,
       default: null,
+    },
+    divisionId: {
+      type: Number,
+      default: 6496, // Default to Renovation division
     },
     notes: {
       type: String,

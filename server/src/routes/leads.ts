@@ -63,6 +63,7 @@ router.post("/", async (req, res) => {
           workTypeIds: newLead.workTypeIds,
           salesRepId: newLead.salesRepId,
           callCenterRepId: newLead.callCenterRepId,
+          divisionId: newLead.divisionId || 6496, // Default to Renovation division
           notes: newLead.notes || "",
           eventName: newLead.eventName || "Web Form Submission",
           referredBy: (leadData as any).referredBy,
