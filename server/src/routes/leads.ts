@@ -260,7 +260,7 @@ router.post("/:id/resync", async (req, res) => {
           preferredTime: lead.appointmentDetails?.preferredTime || "",
           notes: lead.appointmentDetails?.notes || "",
         } : undefined,
-        leadId: lead._id.toString(),
+        leadId: lead._id?.toString() || leadId,
       });
       
       // Update lead with sync results
