@@ -107,20 +107,38 @@
           </div>
 
           <div class="q-mt-xl text-center">
+            <!-- Copy Lead Info Button (for backup before submit) -->
             <q-btn
-              :label="leadSaved ? 'Update Lead' : 'Submit Lead'"
-              color="primary"
+              label="Copy Lead Info"
+              color="secondary"
               size="lg"
-              @click="submitForm"
-              :disable="loading || !isFormValid"
-              :loading="loading"
-              class="submit-btn"
-            >
-              <template v-slot:loading>
-                <q-spinner-hourglass class="on-left" />
-                {{ leadSaved ? 'Updating...' : 'Submitting...' }}
-              </template>
-            </q-btn>
+              icon="content_copy"
+              @click="copyFormData"
+              :loading="preSubmitCopyLoading"
+              class="q-mb-md"
+              outline
+            />
+            
+            <div class="q-mb-sm">
+              <q-btn
+                :label="leadSaved ? 'Update Lead' : 'Submit Lead'"
+                color="primary"
+                size="lg"
+                @click="submitForm"
+                :disable="loading || !isFormValid"
+                :loading="loading"
+                class="submit-btn"
+              >
+                <template v-slot:loading>
+                  <q-spinner-hourglass class="on-left" />
+                  {{ leadSaved ? 'Updating...' : 'Submitting...' }}
+                </template>
+              </q-btn>
+            </div>
+            
+            <div class="text-caption text-grey-6">
+              💡 Tip: Copy lead info above as backup before submitting
+            </div>
           </div>
         </q-card-section>
       </q-card>
@@ -235,6 +253,7 @@ const showPicker = ref(true); // Control visibility of the appointment picker
 const leadSaved = ref(false);
 const savedLeadData = ref<any>(null);
 const copyLoading = ref(false);
+const preSubmitCopyLoading = ref(false);
 
 // Copy functionality
 const { copyLeadToClipboard } = useCopyLead();
@@ -383,6 +402,55 @@ async function submitForm() {
     });
   } finally {
     loading.value = false;
+  }
+}
+
+// Copy form data to clipboard (before submitting)
+async function copyFormData() {
+  preSubmitCopyLoading.value = true;
+  
+  try {
+    // Build a lead object from current form data
+    const formLead = {
+      fullName: form.value.fullName,
+      email: form.value.email,
+      phone: form.value.phone,
+      address: form.value.address,
+      servicesOfInterest: form.value.servicesOfInterest,
+      notes: form.value.notes,
+      wantsAppointment: form.value.wantsAppointment,
+      appointmentDetails: form.value.appointmentDetails,
+      eventName: form.value.eventName,
+      referredBy: form.value.referredBy,
+      referred_by_type: form.value.referred_by_type,
+      referred_by_id: form.value.referred_by_id,
+      referred_by_note: form.value.referred_by_note,
+      divisionId: form.value.divisionId,
+      tradeIds: selectedTradeIds.value,
+      workTypeIds: selectedWorkTypeIds.value,
+      salesRepId: selectedSalesRepId.value,
+      // Add some metadata
+      _backup: true,
+      _timestamp: new Date().toISOString(),
+      _status: 'Form data (not yet submitted)'
+    };
+    
+    await copyLeadToClipboard(formLead);
+    
+    Notify.create({
+      type: 'positive',
+      message: 'Lead form data copied to clipboard as backup!',
+      timeout: 3000,
+    });
+  } catch (error) {
+    console.error('Error copying form data:', error);
+    Notify.create({
+      type: 'negative',
+      message: 'Failed to copy lead data. Please try again.',
+      timeout: 3000,
+    });
+  } finally {
+    preSubmitCopyLoading.value = false;
   }
 }
 

@@ -15,7 +15,10 @@
 
         <q-toolbar-title class="flex items-center no-wrap">
           <img src="https://raw.githubusercontent.com/FacetBaths/EventCollect/main/client/public/assets/Logo_V2_Gradient7_CTC.png" alt="EventCollect Logo" class="logo q-mr-sm q-mr-md-md" loading="lazy" />
-          <span class="text-h6 text-h5-md text-weight-medium text-primary" :class="$q.screen.lt.sm ? 'text-no-wrap' : ''">EventCollect</span>
+          <div class="flex column">
+            <span class="text-h6 text-h5-md text-weight-medium text-primary" :class="$q.screen.lt.sm ? 'text-no-wrap' : ''">EventCollect</span>
+            <span class="text-caption text-grey-6" v-if="$q.screen.gt.xs">v{{ versionInfo.version }}</span>
+          </div>
         </q-toolbar-title>
 
         <div class="flex items-center q-gutter-xs q-gutter-md-md">
@@ -121,6 +124,7 @@ import { ref, computed } from 'vue';
 import { Notify } from 'quasar';
 import { apiService } from '../services/api';
 import { useEventStore } from 'stores/event-store';
+import versionInfo from '../version.json';
 
 interface NavigationLink {
   title: string;

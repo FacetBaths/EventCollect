@@ -1,0 +1,11 @@
+{
+  "version": "1.2.0",
+  "buildDate": "2025-01-06",
+  "features": [
+    "Fixed LEAP duplicate creation on edit",
+    "Added appointment editing in lead modal", 
+    "Added pre-submit copy backup functionality",
+    "Verified appointments saving to MongoDB",
+    "Removed email unique constraint"
+  ]
+}

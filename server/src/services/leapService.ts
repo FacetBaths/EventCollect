@@ -1474,10 +1474,34 @@ export class LeapService {
                 error: customerError.message
               });
               customerExists = false;
+            } else if (customerError.response && customerError.response.status === 412) {
+              // Don't recreate for validation errors (412) - these are issues with our request
+              const validationErrors = customerError.response.data?.error?.validation || customerError.response.data?.validation || {};
+              const errorDetails = Object.entries(validationErrors)
+                .map(([field, messages]: [string, any]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+                .join('; ');
+              
+              const enhancedError = new Error(
+                `LEAP CRM Customer Update Validation Failed: ${errorDetails || 'Unknown validation error'}`
+              );
+              
+              // Add the validation details to the error for the frontend
+              (enhancedError as any).validationErrors = validationErrors;
+              (enhancedError as any).statusCode = 412;
+              
+              logger.error("Customer update failed due to validation errors - not recreating prospect", {
+                customerId: leadData.leapCustomerId,
+                error: customerError.message,
+                validationErrors,
+                errorDetails
+              });
+              
+              throw enhancedError; // Re-throw with enhanced validation details
             } else {
               logger.warn("Failed to update customer due to other error, but continuing with job update", {
                 customerId: leadData.leapCustomerId,
-                error: customerError.message
+                error: customerError.message,
+                statusCode: customerError.response?.status
               });
             }
           }
@@ -1567,11 +1591,14 @@ export class LeapService {
                 
                 throw enhancedError; // Re-throw with enhanced validation details
               } else {
-                logger.warn("Failed to update job due to other error - will recreate via prospect creation", {
+                // For other non-404 errors, treat them as recoverable and continue
+                // Don't recreate the prospect for general update failures
+                logger.warn("Failed to update job due to other error, but not recreating prospect", {
                   jobId: leadData.leapJobId,
-                  error: jobError.message
+                  error: jobError.message,
+                  statusCode: jobError.response?.status
                 });
-                jobExists = false;
+                // Don't set jobExists = false here - only for genuine 404 errors
               }
             }
           }

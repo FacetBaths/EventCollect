@@ -287,6 +287,52 @@
               </q-card>
             </q-expansion-item>
 
+            <!-- Appointment Preferences -->
+            <q-expansion-item
+              icon="event"
+              label="Appointment Preferences"
+              class="q-mb-md"
+              v-if="selectedLead.wantsAppointment || selectedLead.appointmentDetails"
+            >
+              <q-card>
+                <q-card-section>
+                  <q-toggle
+                    v-model="selectedLead.wantsAppointment"
+                    label="Wants Appointment"
+                    color="primary"
+                    class="q-mb-md"
+                  />
+                  
+                  <div v-if="selectedLead.wantsAppointment">
+                    <q-input
+                      filled
+                      v-model="selectedLead.appointmentDetails.preferredDate"
+                      label="Preferred Date"
+                      type="date"
+                      class="q-mb-md"
+                    />
+                    
+                    <q-select
+                      filled
+                      v-model="selectedLead.appointmentDetails.preferredTime"
+                      :options="appointmentTimeSlots"
+                      label="Preferred Time"
+                      class="q-mb-md"
+                    />
+                    
+                    <q-input
+                      filled
+                      v-model="selectedLead.appointmentDetails.notes"
+                      label="Appointment Notes"
+                      type="textarea"
+                      rows="2"
+                      class="q-mb-md"
+                    />
+                  </div>
+                </q-card-section>
+              </q-card>
+            </q-expansion-item>
+
             <!-- Temperature Rating -->
             <q-expansion-item
               icon="thermostat"
@@ -549,7 +595,45 @@
                 label="Division ID"
                 class="q-mb-md"
               />
-
+              
+              <!-- Appointment Preferences (Desktop) -->
+              <div class="text-subtitle1 text-weight-medium q-mb-md q-mt-lg" v-if="selectedLead.wantsAppointment || selectedLead.appointmentDetails">Appointment Preferences</div>
+              <div v-if="selectedLead.wantsAppointment || selectedLead.appointmentDetails" class="q-mb-md">
+                <q-toggle
+                  v-model="selectedLead.wantsAppointment"
+                  label="Wants Appointment"
+                  color="primary"
+                  class="q-mb-md"
+                />
+                
+                <div v-if="selectedLead.wantsAppointment" class="row q-gutter-sm q-mb-sm">
+                  <q-input
+                    filled
+                    v-model="selectedLead.appointmentDetails.preferredDate"
+                    label="Preferred Date"
+                    type="date"
+                    class="col"
+                  />
+                  <q-select
+                    filled
+                    v-model="selectedLead.appointmentDetails.preferredTime"
+                    :options="appointmentTimeSlots"
+                    label="Preferred Time"
+                    class="col"
+                  />
+                </div>
+                
+                <q-input
+                  v-if="selectedLead.wantsAppointment"
+                  filled
+                  v-model="selectedLead.appointmentDetails.notes"
+                  label="Appointment Notes"
+                  type="textarea"
+                  rows="2"
+                  class="q-mb-md"
+                />
+              </div>
+              
               <!-- Referral Information -->
               <div class="text-subtitle1 text-weight-medium q-mb-md q-mt-lg">Referral Information</div>
               <q-input
@@ -693,6 +777,13 @@ const eventStore = useEventStore();
 // Copy functionality
 const { copyLeadToClipboard } = useCopyLead();
 const copyingLeadIds = ref<string[]>([]);
+
+// Appointment time slots
+const appointmentTimeSlots = [
+  '10:00 AM',
+  '2:00 PM', 
+  '5:00 PM'
+];
 
 // View mode and pagination
 const viewMode = ref('cards'); // 'cards' or 'table'
@@ -863,6 +954,15 @@ function editLead(lead: Lead) {
   }
   if (!selectedLead.value.workTypeIds) {
     selectedLead.value.workTypeIds = [];
+  }
+  
+  // Initialize appointment details if needed
+  if (!selectedLead.value.appointmentDetails) {
+    selectedLead.value.appointmentDetails = {
+      preferredDate: '',
+      preferredTime: '',
+      notes: ''
+    };
   }
   
   editLeadDialog.value = true;
