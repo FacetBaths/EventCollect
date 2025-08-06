@@ -241,16 +241,74 @@ router.put("/:id", async (req, res) => {
     
     logger.info("Lead updated successfully", { leadId, updateData });
     
+    // Check if only temperature rating changed (for optimized sync)
+    const onlyTempChanged = (originalLead.tempRating !== updatedLead.tempRating) && 
+      areLeadsEquivalentExceptTemp(originalLead, updatedLead);
+    
+    if (onlyTempChanged) {
+      logger.info("Detected temperature-only change - will update job description", {
+        leadId,
+        oldTemp: originalLead.tempRating,
+        newTemp: updatedLead.tempRating
+      });
+    }
+    
     // Automatically sync to LEAP if enabled and lead has LEAP IDs (indicating it was previously synced)
     if (process.env.ENABLE_LEAP_SYNC === "true" && (updatedLead.leapCustomerId || updatedLead.leapJobId)) {
       try {
-        logger.info("Auto-syncing updated lead to LEAP CRM", { 
-          leadId,
-          leapCustomerId: updatedLead.leapCustomerId,
-          leapJobId: updatedLead.leapJobId
-        });
-        
-        const syncResult = await leapService.syncLead({
+        if (onlyTempChanged && updatedLead.leapJobId && updatedLead.leapCustomerId) {
+          // Use optimized temperature-only update
+          logger.info("Using optimized temperature update for LEAP CRM", { 
+            leadId,
+            leapCustomerId: updatedLead.leapCustomerId,
+            leapJobId: updatedLead.leapJobId,
+            tempRating: updatedLead.tempRating
+          });
+          
+          const syncResult = await leapService.instance.updateJobTemperature({
+            leapJobId: updatedLead.leapJobId,
+            leapCustomerId: updatedLead.leapCustomerId,
+            tempRating: updatedLead.tempRating || 1,
+            notes: updatedLead.notes,
+            eventName: updatedLead.eventName,
+            referredBy: updatedLead.referredBy,
+            appointmentDetails: updatedLead.wantsAppointment ? {
+              preferredDate: updatedLead.appointmentDetails?.preferredDate || "",
+              preferredTime: updatedLead.appointmentDetails?.preferredTime || "",
+              notes: updatedLead.appointmentDetails?.notes || "",
+            } : undefined,
+            leadId: updatedLead._id?.toString() || leadId,
+            tradeIds: updatedLead.tradeIds,
+            workTypeIds: updatedLead.workTypeIds,
+            address: {
+              street: updatedLead.address.street,
+              city: updatedLead.address.city,
+              state: updatedLead.address.state,
+              zipCode: updatedLead.address.zipCode,
+            },
+            servicesOfInterest: updatedLead.servicesOfInterest
+          });
+          
+          // Update lead status
+          updatedLead.syncStatus = "synced";
+          updatedLead.syncError = undefined;
+          await updatedLead.save();
+          
+          logger.info("Temperature updated successfully in LEAP CRM", { 
+            leadId,
+            tempRating: updatedLead.tempRating,
+            jobId: updatedLead.leapJobId
+          });
+          
+        } else {
+          // Use full sync for other changes
+          logger.info("Auto-syncing updated lead to LEAP CRM", { 
+            leadId,
+            leapCustomerId: updatedLead.leapCustomerId,
+            leapJobId: updatedLead.leapJobId
+          });
+          
+          const syncResult = await leapService.syncLead({
           fullName: updatedLead.fullName,
           email: updatedLead.email,
           phone: updatedLead.phone,
@@ -335,6 +393,7 @@ router.put("/:id", async (req, res) => {
           customerId: updatedLead.leapCustomerId,
           jobId: updatedLead.leapJobId,
         });
+        }
       } catch (syncError: any) {
         logger.error("Failed to auto-sync updated lead to LEAP CRM", {
           leadId,
@@ -786,5 +845,25 @@ router.post("/sync-pending", async (req, res) => {
     });
   }
 });
+
+
+function areLeadsEquivalentExceptTemp(leadA: ILead, leadB: ILead): boolean {
+  // Create copies to avoid modifying original objects
+  const cleanA = JSON.parse(JSON.stringify(leadA));
+  const cleanB = JSON.parse(JSON.stringify(leadB));
+
+  // Remove fields that should be ignored during comparison
+  delete cleanA.tempRating;
+  delete cleanB.tempRating;
+  delete cleanA.updatedAt;
+  delete cleanB.updatedAt;
+  delete cleanA.syncStatus;
+  delete cleanB.syncStatus;
+  delete cleanA.syncError;
+  delete cleanB.syncError;
+
+  // Compare the sanitized objects
+  return JSON.stringify(cleanA) === JSON.stringify(cleanB);
+}
 
 export default router;

@@ -664,6 +664,139 @@ export class LeapService {
   }
 
   /**
+   * Update job description with new temperature rating (optimized for temp-only changes)
+   */
+  async updateJobTemperature(leadData: {
+    leapJobId: string;
+    leapCustomerId: string;
+    tempRating: number;
+    notes?: string;
+    eventName?: string;
+    referredBy?: string;
+    appointmentDetails?: {
+      preferredDate: string;
+      preferredTime: string;
+      notes?: string;
+    };
+    leadId: string;
+    tradeIds?: number[];
+    workTypeIds?: number[];
+    address: {
+      street: string;
+      city: string;
+      state: string;
+      zipCode: string;
+    };
+    servicesOfInterest?: string[];
+  }): Promise<LeapApiResponse<any>> {
+    try {
+      logger.info("Updating job temperature in LEAP CRM", {
+        jobId: leadData.leapJobId,
+        customerId: leadData.leapCustomerId,
+        tempRating: leadData.tempRating,
+        leadId: leadData.leadId
+      });
+
+      // Build updated job description with new temperature
+      const buildJobDescription = (data: any): string => {
+        let description = data.notes || `Lead from ${data.eventName}`;
+        
+        // Append appointment details if provided
+        if (data.appointmentDetails && (data.appointmentDetails.preferredDate || data.appointmentDetails.preferredTime || data.appointmentDetails.notes)) {
+          description += "\n\n--- APPOINTMENT REQUEST ---";
+          
+          if (data.appointmentDetails.preferredDate) {
+            const formattedDate = new Date(data.appointmentDetails.preferredDate).toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric', 
+              month: 'long',
+              day: 'numeric'
+            });
+            description += `\nPreferred Date: ${formattedDate}`;
+          }
+          
+          if (data.appointmentDetails.preferredTime) {
+            description += `\nPreferred Time: ${data.appointmentDetails.preferredTime}`;
+          }
+          
+          // Always include appointment notes if they exist
+          if (data.appointmentDetails.notes && data.appointmentDetails.notes.trim()) {
+            description += `\nAppointment Notes: ${data.appointmentDetails.notes.trim()}`;
+          }
+        }
+        // Handle case where only appointment notes exist (no date/time preferences)
+        else if (data.appointmentDetails && data.appointmentDetails.notes && data.appointmentDetails.notes.trim()) {
+          description += `\n\n--- APPOINTMENT NOTES ---`;
+          description += `\n${data.appointmentDetails.notes.trim()}`;
+        }
+        
+        // Append temp rating if provided
+        if (data.tempRating && data.tempRating >= 1 && data.tempRating <= 10) {
+          description += `\n\nTemp: ${data.tempRating}/10`;
+        }
+        
+        return description;
+      };
+
+      // Update job with new description
+      const jobUpdateData = {
+        description: buildJobDescription(leadData),
+        customer_id: leadData.leapCustomerId, // Required field
+        trades: (leadData.tradeIds && leadData.tradeIds.length > 0) ? leadData.tradeIds : [105], // Required field - default to BATH REMODEL
+        same_as_customer_address: 1, // Required field
+        address: {
+          address_line_1: leadData.address.street,
+          city: leadData.address.city,
+          state: leadData.address.state,
+          zip: leadData.address.zipCode,
+          country: "United States"
+        },
+        referral_source: leadData.referredBy || leadData.eventName,
+        // Additional fields that might be helpful
+        work_types: (leadData.workTypeIds && leadData.workTypeIds.length > 0) ? leadData.workTypeIds : [91139], // Default to Full Remodel
+        other_trade_type_description: leadData.servicesOfInterest?.join(", ") || "",
+        appointment_required: leadData.appointmentDetails ? 1 : 0
+      };
+
+      const jobResult = await this.updateJob(leadData.leapJobId, jobUpdateData);
+
+      // Return result in format compatible with existing code
+      const result = {
+        success: true,
+        data: {
+          job: jobResult.data,
+          id: jobResult.data.id || leadData.leapJobId,
+          customer_id: leadData.leapCustomerId,
+          job_id: jobResult.data.id || leadData.leapJobId,
+          job_ids: [jobResult.data.id || leadData.leapJobId],
+          tempUpdated: true // Flag to indicate this was a temperature-only update
+        },
+        status: 200,
+        message: "Job temperature updated successfully"
+      };
+
+      logger.info("Job temperature updated successfully in LEAP CRM", {
+        jobId: jobResult.data.id || leadData.leapJobId,
+        customerId: leadData.leapCustomerId,
+        tempRating: leadData.tempRating,
+        leadId: leadData.leadId
+      });
+
+      return result;
+    } catch (error: any) {
+      logger.error("Failed to update job temperature in LEAP CRM", {
+        jobId: leadData.leapJobId,
+        customerId: leadData.leapCustomerId,
+        tempRating: leadData.tempRating,
+        leadId: leadData.leadId,
+        error: error.message,
+        stack: error.stack
+      });
+      throw error; // Re-throw the error to be handled by the caller
+    }
+  }
+
+  /**
    * Get company trades from LEAP CRM
    */
   async getCompanyTrades(): Promise<LeapApiResponse<any[]>> {
@@ -1635,5 +1768,9 @@ export const leapService = {
 
   async getReferralTypes() {
     return this.instance.getReferralTypes();
+  },
+
+  async updateJobTemperature(leadData: any) {
+    return this.instance.updateJobTemperature(leadData);
   },
 };
