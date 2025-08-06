@@ -162,6 +162,9 @@
                 <q-btn flat icon="sync" @click="resyncLead(props.row._id)" color="orange" size="sm" v-if="props.row.syncStatus === 'error'">
                   <q-tooltip>Resync to LEAP</q-tooltip>
                 </q-btn>
+                <q-btn flat icon="content_copy" @click="copyTableLead(props.row)" color="secondary" size="sm" :loading="copyingLeadIds.includes(props.row._id)">
+                  <q-tooltip>Copy Lead Info</q-tooltip>
+                </q-btn>
                 <q-btn flat icon="delete" @click="deleteLead(props.row._id)" color="negative" size="sm">
                   <q-tooltip>Delete Lead</q-tooltip>
                 </q-btn>
@@ -631,6 +634,7 @@ import { Notify } from 'quasar';
 import AppointmentScheduler from '../components/AppointmentScheduler.vue';
 import LeadCard from '../components/LeadCard.vue';
 import { useEventStore } from '../stores/event-store';
+import { useCopyLead } from '../composables/useCopyLead';
 
 interface Lead {
   _id: string;
@@ -685,6 +689,10 @@ const editLeadDialog = ref(false);
 const appointmentDialog = ref(false);
 const selectedLead = ref<Lead | null>(null);
 const eventStore = useEventStore();
+
+// Copy functionality
+const { copyLeadToClipboard } = useCopyLead();
+const copyingLeadIds = ref<string[]>([]);
 
 // View mode and pagination
 const viewMode = ref('cards'); // 'cards' or 'table'
@@ -1064,6 +1072,18 @@ async function deleteLead(leadId: string) {
       message: 'Failed to delete lead. Please try again.',
       timeout: 3000,
     });
+  }
+}
+
+// Copy lead functionality for table view
+async function copyTableLead(lead: Lead) {
+  copyingLeadIds.value.push(lead._id);
+  try {
+    await copyLeadToClipboard(lead);
+  } catch (error) {
+    console.error('Error copying lead:', error);
+  } finally {
+    copyingLeadIds.value = copyingLeadIds.value.filter(id => id !== lead._id);
   }
 }
 </script>

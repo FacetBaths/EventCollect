@@ -1,4 +1,5 @@
 import express from "express";
+import mongoose from "mongoose";
 import { Lead, ILead } from "../models/Lead";
 import { Event } from "../models/Event";
 import { Appointment } from "../models/Appointment";
@@ -47,7 +48,62 @@ router.post("/", async (req, res) => {
     }
 
     const newLead = new Lead(leadData);
-    await newLead.save();
+    const savedLead = await newLead.save();
+    
+    logger.info("Lead created successfully", { 
+      leadId: savedLead._id,
+      email: savedLead.email,
+      wantsAppointment: savedLead.wantsAppointment
+    });
+    
+    // Create appointment record immediately if customer wants an appointment
+    let appointmentRecord = null;
+    if (newLead.wantsAppointment && newLead.appointmentDetails) {
+      try {
+        logger.info("Creating appointment record for lead", { 
+          leadId: newLead._id,
+          preferredDate: newLead.appointmentDetails.preferredDate,
+          preferredTime: newLead.appointmentDetails.preferredTime
+        });
+        
+        appointmentRecord = new Appointment({
+          leadId: (newLead._id as any).toString(),
+          date: new Date(newLead.appointmentDetails.preferredDate),
+          timeSlot: newLead.appointmentDetails.preferredTime,
+          notes: newLead.appointmentDetails.notes || "",
+          customerName: newLead.fullName,
+          customerEmail: newLead.email,
+          customerPhone: newLead.phone,
+          status: "scheduled",
+          address: {
+            street: newLead.address.street,
+            city: newLead.address.city,
+            state: newLead.address.state,
+            zipCode: newLead.address.zipCode,
+          },
+          servicesOfInterest: newLead.servicesOfInterest,
+          tradeIds: newLead.tradeIds,
+          salesRepId: newLead.salesRepId,
+          eventName: newLead.eventName,
+        });
+        
+        await appointmentRecord.save();
+        
+        logger.info("Appointment record created successfully", {
+          leadId: newLead._id,
+          appointmentId: appointmentRecord._id,
+          date: appointmentRecord.date,
+          timeSlot: appointmentRecord.timeSlot
+        });
+      } catch (appointmentError: any) {
+        logger.error("Failed to create appointment record", {
+          leadId: newLead._id,
+          error: appointmentError.message,
+          stack: appointmentError.stack,
+        });
+        // Continue with lead processing even if appointment creation fails
+      }
+    }
     
     // Automatically sync to LEAP if enabled
     if (process.env.ENABLE_LEAP_SYNC === "true") {
@@ -133,7 +189,16 @@ router.post("/", async (req, res) => {
       }
     }
     
-    res.status(201).json({ success: true, data: newLead });
+    res.status(201).json({ 
+      success: true, 
+      data: newLead,
+      appointmentCreated: appointmentRecord ? {
+        id: appointmentRecord._id,
+        date: appointmentRecord.date,
+        timeSlot: appointmentRecord.timeSlot,
+        status: appointmentRecord.status
+      } : null
+    });
   } catch (error: any) {
     logger.error("Error saving lead", {
       error: error.message,
@@ -156,17 +221,159 @@ router.put("/:id", async (req, res) => {
     const leadId = req.params.id;
     const updateData = req.body;
     
-    const updatedLead = await Lead.findByIdAndUpdate(leadId, updateData, { new: true });
-    
-    if (!updatedLead) {
+    // Get the original lead before update to compare for sync needs
+    const originalLead = await Lead.findById(leadId);
+    if (!originalLead) {
       return res.status(404).json({
         success: false,
         error: "Lead not found",
       });
     }
     
+    const updatedLead = await Lead.findByIdAndUpdate(leadId, updateData, { new: true });
+    
+    if (!updatedLead) {
+      return res.status(404).json({
+        success: false,
+        error: "Lead not found after update",
+      });
+    }
+    
     logger.info("Lead updated successfully", { leadId, updateData });
-    res.json({ success: true, data: updatedLead });
+    
+    // Automatically sync to LEAP if enabled and lead has LEAP IDs (indicating it was previously synced)
+    if (process.env.ENABLE_LEAP_SYNC === "true" && (updatedLead.leapCustomerId || updatedLead.leapJobId)) {
+      try {
+        logger.info("Auto-syncing updated lead to LEAP CRM", { 
+          leadId,
+          leapCustomerId: updatedLead.leapCustomerId,
+          leapJobId: updatedLead.leapJobId
+        });
+        
+        const syncResult = await leapService.syncLead({
+          fullName: updatedLead.fullName,
+          email: updatedLead.email,
+          phone: updatedLead.phone,
+          address: {
+            street: updatedLead.address.street,
+            city: updatedLead.address.city,
+            state: updatedLead.address.state,
+            zipCode: updatedLead.address.zipCode,
+          },
+          servicesOfInterest: updatedLead.servicesOfInterest,
+          tradeIds: updatedLead.tradeIds,
+          workTypeIds: updatedLead.workTypeIds,
+          salesRepId: updatedLead.salesRepId,
+          callCenterRepId: updatedLead.callCenterRepId,
+          divisionId: updatedLead.divisionId || 6496,
+          tempRating: updatedLead.tempRating,
+          notes: updatedLead.notes || "",
+          eventName: updatedLead.eventName || "Web Form Submission",
+          referredBy: updatedLead.referredBy,
+          referred_by_type: updatedLead.referred_by_type,
+          referred_by_id: updatedLead.referred_by_id,
+          referred_by_note: updatedLead.referred_by_note,
+          appointmentDetails: updatedLead.wantsAppointment ? {
+            preferredDate: updatedLead.appointmentDetails?.preferredDate || "",
+            preferredTime: updatedLead.appointmentDetails?.preferredTime || "",
+            notes: updatedLead.appointmentDetails?.notes || "",
+          } : undefined,
+          leadId: updatedLead._id?.toString() || leadId,
+          leapCustomerId: updatedLead.leapCustomerId, // Pass existing LEAP customer ID for updates
+          leapJobId: updatedLead.leapJobId, // Pass existing LEAP job ID for updates
+        });
+        
+        // Debug log the sync result structure
+        logger.info("LEAP Sync Result Structure for Lead Update", {
+          leadId,
+          syncResultData: syncResult.data,
+          syncResultKeys: syncResult.data ? Object.keys(syncResult.data) : [],
+          timestamp: new Date().toISOString()
+        });
+        
+        // Update lead with sync results (including any new IDs if entities were recreated)
+        const prospectId = syncResult.data?.id || syncResult.data?.prospect?.id;
+        if (prospectId) {
+          updatedLead.leapProspectId = prospectId.toString();
+        }
+        
+        // Handle both update responses and prospect creation responses
+        const customerData = syncResult.data?.customer || syncResult.data;
+        if (customerData?.id) {
+          updatedLead.leapCustomerId = customerData.id.toString();
+          logger.info("Extracted customer ID from customer.id", { customerId: customerData.id });
+        }
+        // Also check for customer_id field (from prospect creation)
+        else if (syncResult.data?.customer_id) {
+          updatedLead.leapCustomerId = syncResult.data.customer_id.toString();
+          logger.info("Extracted customer ID from customer_id", { customerId: syncResult.data.customer_id });
+        }
+        
+        const jobData = syncResult.data?.job || syncResult.data;
+        if (jobData?.id) {
+          updatedLead.leapJobId = jobData.id.toString();
+          logger.info("Extracted job ID from job.id", { jobId: jobData.id });
+        }
+        // Also check for job_id field (from prospect creation)
+        else if (syncResult.data?.job_id) {
+          updatedLead.leapJobId = syncResult.data.job_id.toString();
+          logger.info("Extracted job ID from job_id", { jobId: syncResult.data.job_id });
+        }
+        // Also check for job_ids array (from prospect creation)
+        else if (syncResult.data?.job_ids && syncResult.data.job_ids.length > 0) {
+          updatedLead.leapJobId = syncResult.data.job_ids[0].toString();
+          logger.info("Extracted job ID from job_ids[0]", { jobId: syncResult.data.job_ids[0] });
+        }
+        
+        updatedLead.syncStatus = "synced";
+        updatedLead.syncError = undefined;
+        await updatedLead.save();
+        
+        logger.info("Lead auto-synced to LEAP CRM successfully after update", { 
+          leadId,
+          prospectId: updatedLead.leapProspectId,
+          customerId: updatedLead.leapCustomerId,
+          jobId: updatedLead.leapJobId,
+        });
+      } catch (syncError: any) {
+        logger.error("Failed to auto-sync updated lead to LEAP CRM", {
+          leadId,
+          error: syncError.message,
+          stack: syncError.stack,
+          statusCode: syncError.statusCode,
+          validationErrors: syncError.validationErrors
+        });
+        
+        // Check if this is a validation error (412) - provide detailed feedback
+        let detailedError = syncError.message;
+        if (syncError.statusCode === 412 && syncError.validationErrors) {
+          const errorDetails = Object.entries(syncError.validationErrors)
+            .map(([field, messages]: [string, any]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+            .join('; ');
+          detailedError = `LEAP CRM validation failed - ${errorDetails}`;
+        }
+        
+        // Update lead with error status but don't fail the update request
+        updatedLead.syncStatus = "error";
+        updatedLead.syncError = detailedError;
+        await updatedLead.save();
+        
+        // Add detailed sync error info to response but don't fail the request
+        logger.warn("Lead update successful but sync failed - user can manually resync", {
+          leadId,
+          syncError: detailedError,
+          isValidationError: syncError.statusCode === 412
+        });
+      }
+    }
+    
+    res.json({ 
+      success: true, 
+      data: updatedLead,
+      syncAttempted: process.env.ENABLE_LEAP_SYNC === "true" && (updatedLead.leapCustomerId || updatedLead.leapJobId),
+      syncStatus: updatedLead.syncStatus,
+      syncError: updatedLead.syncError
+    });
   } catch (error: any) {
     logger.error("Error updating lead", {
       error: error.message,
@@ -258,12 +465,18 @@ router.post("/:id/resync", async (req, res) => {
         tempRating: lead.tempRating,
         notes: lead.notes || "",
         eventName: lead.eventName || "Web Form Submission",
+        referredBy: lead.referredBy,
+        referred_by_type: lead.referred_by_type,
+        referred_by_id: lead.referred_by_id,
+        referred_by_note: lead.referred_by_note,
         appointmentDetails: lead.wantsAppointment ? {
           preferredDate: lead.appointmentDetails?.preferredDate || "",
           preferredTime: lead.appointmentDetails?.preferredTime || "",
           notes: lead.appointmentDetails?.notes || "",
         } : undefined,
         leadId: lead._id?.toString() || leadId,
+        leapCustomerId: lead.leapCustomerId, // Pass existing LEAP customer ID if available
+        leapJobId: lead.leapJobId, // Pass existing LEAP job ID if available
       });
       
       // Update lead with sync results
@@ -482,12 +695,18 @@ router.post("/sync-pending", async (req, res) => {
           tempRating: lead.tempRating,
           notes: lead.notes || "",
           eventName: lead.eventName || "Web Form Submission",
+          referredBy: lead.referredBy,
+          referred_by_type: lead.referred_by_type,
+          referred_by_id: lead.referred_by_id,
+          referred_by_note: lead.referred_by_note,
           appointmentDetails: lead.wantsAppointment ? {
             preferredDate: lead.appointmentDetails?.preferredDate || "",
             preferredTime: lead.appointmentDetails?.preferredTime || "",
             notes: lead.appointmentDetails?.notes || "",
           } : undefined,
           leadId: lead._id?.toString() || lead._id,
+          leapCustomerId: lead.leapCustomerId, // Pass existing LEAP customer ID if available
+          leapJobId: lead.leapJobId, // Pass existing LEAP job ID if available
         });
         
         // Update lead with sync results

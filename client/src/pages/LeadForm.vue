@@ -146,6 +146,15 @@
 
           <div class="text-center">
             <q-btn
+              label="Copy Lead Info"
+              color="secondary"
+              size="lg"
+              icon="content_copy"
+              @click="copyCurrentLead"
+              class="q-mr-md"
+              :loading="copyLoading"
+            />
+            <q-btn
               label="Start New Lead"
               color="primary"
               size="lg"
@@ -168,6 +177,7 @@ import SimpleAppointmentPicker from '../components/SimpleAppointmentPicker.vue';
 import TradeSelector from '../components/TradeSelector.vue';
 import SalesRepSelector from '../components/SalesRepSelector.vue';
 import { useEventStore } from '../stores/event-store';
+import { useCopyLead } from '../composables/useCopyLead';
 
 const eventStore = useEventStore();
 
@@ -224,6 +234,10 @@ const selectedSalesRepId = ref<number | null>(null);
 const showPicker = ref(true); // Control visibility of the appointment picker
 const leadSaved = ref(false);
 const savedLeadData = ref<any>(null);
+const copyLoading = ref(false);
+
+// Copy functionality
+const { copyLeadToClipboard } = useCopyLead();
 
 const isFormValid = computed(() => {
   return (
@@ -369,6 +383,27 @@ async function submitForm() {
     });
   } finally {
     loading.value = false;
+  }
+}
+
+// Copy current lead data to clipboard
+async function copyCurrentLead() {
+  if (!savedLeadData.value) {
+    Notify.create({
+      type: 'warning',
+      message: 'No lead data to copy',
+      timeout: 3000,
+    });
+    return;
+  }
+
+  copyLoading.value = true;
+  try {
+    await copyLeadToClipboard(savedLeadData.value);
+  } catch (error) {
+    console.error('Error copying lead:', error);
+  } finally {
+    copyLoading.value = false;
   }
 }
 

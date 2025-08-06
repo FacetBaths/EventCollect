@@ -40,6 +40,12 @@
                   </q-item-section>
                   <q-item-section>Resync</q-item-section>
                 </q-item>
+                <q-item clickable v-close-popup @click="copyLead">
+                  <q-item-section avatar>
+                    <q-icon name="content_copy" :loading="copyLoading" />
+                  </q-item-section>
+                  <q-item-section>Copy Lead Info</q-item-section>
+                </q-item>
                 <q-separator />
                 <q-item clickable v-close-popup @click="$emit('delete', lead._id)">
                   <q-item-section avatar>
@@ -102,7 +108,8 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, computed } from 'vue';
+import { defineProps, computed, ref } from 'vue';
+import { useCopyLead } from '../composables/useCopyLead';
 
 const props = defineProps({
   lead: {
@@ -110,6 +117,10 @@ const props = defineProps({
     required: true,
   },
 });
+
+// Copy functionality
+const { copyLeadToClipboard } = useCopyLead();
+const copyLoading = ref(false);
 
 // Computed property to check if appointment preference has been set
 const isAppointmentSet = computed(() => {
@@ -186,6 +197,18 @@ function formatDate(dateString: string): string {
     day: 'numeric',
     year: 'numeric'
   });
+}
+
+// Copy lead functionality
+async function copyLead() {
+  copyLoading.value = true;
+  try {
+    await copyLeadToClipboard(props.lead);
+  } catch (error) {
+    console.error('Error copying lead:', error);
+  } finally {
+    copyLoading.value = false;
+  }
 }
 </script>
 

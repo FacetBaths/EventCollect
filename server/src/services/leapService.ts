@@ -1285,47 +1285,197 @@ export class LeapService {
         }
       };
 
-      // Check if this is an update to an existing job
-      if (leadData.leapJobId) {
-        logger.info("Updating existing job in LEAP CRM", {
+      // Check if this is an update to an existing customer/job
+      if (leadData.leapJobId || leadData.leapCustomerId) {
+        logger.info("Updating existing customer/job in LEAP CRM", {
+          leapCustomerId: leadData.leapCustomerId,
           leapJobId: leadData.leapJobId,
           leadId: leadData.leadId
         });
 
-        // Update existing job instead of creating new prospect
-        const jobUpdateData = {
-          name: leadData.leadId || `${lastName} - ${leadData.referredBy || leadData.eventName}`,
-          description: buildJobDescription(leadData),
-          address: {
-            address_line_1: leadData.address.street,
-            city: leadData.address.city,
-            state: leadData.address.state,
-            zip: leadData.address.zipCode,
-            country: "United States"
-          },
-          referral_source: leadData.referredBy || leadData.eventName
-        };
+        let customerExists = true;
+        let jobExists = true;
+        
+        // Update existing customer if customer ID is available
+        if (leadData.leapCustomerId) {
+          try {
+            const customerUpdateData = {
+              first_name: firstName,
+              last_name: lastName,
+              email: leadData.email,
+              phones: [
+                {
+                  number: leadData.phone.replace(/\D/g, '').padStart(10, '0'),
+                  type: "home" as const,
+                  label: "home",
+                  primary: true
+                }
+              ],
+              addresses: [
+                {
+                  address_line_1: leadData.address.street,
+                  city: leadData.address.city,
+                  state: leadData.address.state,
+                  zip: leadData.address.zipCode,
+                  country: "United States"
+                }
+              ],
+              status: "active" as const,
+              company_name: leadData.referredBy || leadData.eventName
+            };
+            
+            await this.updateCustomer(leadData.leapCustomerId, customerUpdateData);
+            logger.info("Customer updated successfully in LEAP CRM", {
+              customerId: leadData.leapCustomerId
+            });
+          } catch (customerError: any) {
+            // Check if customer was deleted (404) or doesn't exist
+            const isNotFound = customerError.message.includes('404') || 
+                              customerError.message.includes('not found') ||
+                              customerError.message.includes('Customer not found') ||
+                              (customerError.response && customerError.response.status === 404);
+                              
+            if (isNotFound) {
+              logger.warn("Customer no longer exists in LEAP CRM - will recreate via prospect creation", {
+                customerId: leadData.leapCustomerId,
+                error: customerError.message
+              });
+              customerExists = false;
+            } else {
+              logger.warn("Failed to update customer due to other error, but continuing with job update", {
+                customerId: leadData.leapCustomerId,
+                error: customerError.message
+              });
+            }
+          }
+        }
 
-        const jobResult = await this.updateJob(leadData.leapJobId, jobUpdateData);
+        // Update existing job if job ID is available
+        if (leadData.leapJobId) {
+          try {
+            const jobUpdateData = {
+              name: leadData.leadId || `${lastName} - ${leadData.referredBy || leadData.eventName}`,
+              description: buildJobDescription(leadData),
+              customer_id: leadData.leapCustomerId, // Required field
+              trades: (leadData.tradeIds && leadData.tradeIds.length > 0) ? leadData.tradeIds : [105], // Required field - default to BATH REMODEL
+              same_as_customer_address: 1, // Required field
+              address: {
+                address_line_1: leadData.address.street,
+                city: leadData.address.city,
+                state: leadData.address.state,
+                zip: leadData.address.zipCode,
+                country: "United States"
+              },
+              referral_source: leadData.referredBy || leadData.eventName,
+              // Additional fields that might be helpful
+              work_types: (leadData.workTypeIds && leadData.workTypeIds.length > 0) ? leadData.workTypeIds : [91139], // Default to Full Remodel
+              other_trade_type_description: leadData.servicesOfInterest?.join(", ") || "",
+              appointment_required: leadData.appointmentDetails ? 1 : 0
+            };
 
-        // Return result in format compatible with existing code
+            const jobResult = await this.updateJob(leadData.leapJobId, jobUpdateData);
+
+            // Return result in format compatible with existing code
+            const result = {
+              success: true,
+              data: {
+                job: jobResult.data,
+                id: jobResult.data.id || leadData.leapJobId,
+                customer_id: leadData.leapCustomerId,
+                job_id: jobResult.data.id || leadData.leapJobId,
+                job_ids: [jobResult.data.id || leadData.leapJobId] // Match the format expected by job ID extraction
+              },
+              status: 200,
+              message: "Customer and job updated successfully"
+            };
+
+            logger.info("Job updated successfully in LEAP CRM", {
+              jobId: jobResult.data.id || leadData.leapJobId,
+              customerId: leadData.leapCustomerId,
+              leadId: leadData.leadId
+            });
+
+            return result;
+          } catch (jobError: any) {
+            // Check if job was deleted (404) or doesn't exist
+            const isNotFound = jobError.message.includes('404') || 
+                              jobError.message.includes('not found') ||
+                              jobError.message.includes('Job not found') ||
+                              (jobError.response && jobError.response.status === 404);
+                              
+            if (isNotFound) {
+              logger.warn("Job no longer exists in LEAP CRM - will recreate via prospect creation", {
+                jobId: leadData.leapJobId,
+                error: jobError.message
+              });
+              jobExists = false;
+            } else {
+              // Don't recreate for validation errors (412) - these are issues with our request
+              if (jobError.response && jobError.response.status === 412) {
+                const validationErrors = jobError.response.data?.error?.validation || jobError.response.data?.validation || {};
+                const errorDetails = Object.entries(validationErrors)
+                  .map(([field, messages]: [string, any]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+                  .join('; ');
+                
+                const enhancedError = new Error(
+                  `LEAP CRM Job Update Validation Failed: ${errorDetails || 'Unknown validation error'}`
+                );
+                
+                // Add the validation details to the error for the frontend
+                (enhancedError as any).validationErrors = validationErrors;
+                (enhancedError as any).statusCode = 412;
+                
+                logger.error("Job update failed due to validation errors - not recreating prospect", {
+                  jobId: leadData.leapJobId,
+                  error: jobError.message,
+                  validationErrors,
+                  errorDetails
+                });
+                
+                throw enhancedError; // Re-throw with enhanced validation details
+              } else {
+                logger.warn("Failed to update job due to other error - will recreate via prospect creation", {
+                  jobId: leadData.leapJobId,
+                  error: jobError.message
+                });
+                jobExists = false;
+              }
+            }
+          }
+        }
+        
+        // If customer or job no longer exists, recreate via prospect API
+        if (!customerExists || !jobExists) {
+          logger.info("Recreating customer/job via prospect creation since entities were deleted", {
+            customerExists,
+            jobExists,
+            leadId: leadData.leadId
+          });
+          
+          // Clear the existing IDs since they're invalid
+          delete leadData.leapCustomerId;
+          delete leadData.leapJobId;
+          
+          // Recursively call syncLead to create new prospect
+          return await this.syncLead(leadData);
+        }
+        
+        // If we reach here, only customer exists and was updated successfully
         const result = {
           success: true,
           data: {
-            job: jobResult.data,
-            id: jobResult.data.id,
-            job_id: jobResult.data.id,
-            job_ids: [jobResult.data.id] // Match the format expected by job ID extraction
+            id: leadData.leapCustomerId,
+            customer_id: leadData.leapCustomerId,
           },
           status: 200,
-          message: "Job updated successfully"
+          message: "Customer updated successfully"
         };
-
-        logger.info("Job updated successfully in LEAP CRM", {
-          jobId: jobResult.data.id,
+        
+        logger.info("Customer updated successfully in LEAP CRM", {
+          customerId: leadData.leapCustomerId,
           leadId: leadData.leadId
         });
-
+        
         return result;
       } else {
         // Create new prospect (customer + job in one call)
