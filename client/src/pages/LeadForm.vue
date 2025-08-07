@@ -99,8 +99,11 @@
             </q-banner>
           </div>
 
-          <!-- Appointment Picker - shown when user wants to change preference -->
-          <div v-if="form.wantsAppointment && showPicker" class="q-mt-md">
+          <!-- Appointment Picker - always shown unless lead is saved and picker is hidden -->
+          <div v-if="showPicker" class="q-mt-md">
+            <div v-if="!form.wantsAppointment" class="text-body2 text-grey-7 q-mb-md">
+              💡 You can fill appointment preferences now, even if you haven't decided to schedule yet.
+            </div>
             <SimpleAppointmentPicker
               @appointment-preference-set="onAppointmentPreferenceSet"
             />
@@ -410,6 +413,13 @@ async function copyFormData() {
   preSubmitCopyLoading.value = true;
   
   try {
+    // Check if any appointment details are filled, regardless of wantsAppointment toggle
+    const hasAppointmentData = form.value.appointmentDetails && (
+      form.value.appointmentDetails.preferredDate ||
+      form.value.appointmentDetails.preferredTime ||
+      form.value.appointmentDetails.notes
+    );
+    
     // Build a lead object from current form data
     const formLead = {
       fullName: form.value.fullName,
@@ -419,7 +429,8 @@ async function copyFormData() {
       servicesOfInterest: form.value.servicesOfInterest,
       notes: form.value.notes,
       wantsAppointment: form.value.wantsAppointment,
-      appointmentDetails: form.value.appointmentDetails,
+      // Always include appointment details if any are filled, regardless of toggle state
+      appointmentDetails: hasAppointmentData ? form.value.appointmentDetails : null,
       eventName: form.value.eventName,
       referredBy: form.value.referredBy,
       referred_by_type: form.value.referred_by_type,
@@ -432,7 +443,8 @@ async function copyFormData() {
       // Add some metadata
       _backup: true,
       _timestamp: new Date().toISOString(),
-      _status: 'Form data (not yet submitted)'
+      _status: 'Form data (not yet submitted)',
+      _appointmentDataPresent: hasAppointmentData ? 'YES - Appointment preferences filled' : 'NO - No appointment preferences'
     };
     
     await copyLeadToClipboard(formLead);
