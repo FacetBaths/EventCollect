@@ -1044,14 +1044,13 @@ export class LeapService {
         formData.append('rep_id', prospectData.rep_id.toString());
       }
       if (prospectData.referred_by_type) {
-        formData.append('referred_by_type', prospectData.referred_by_type);
-        // Try alternative field names for LEAP CRM compatibility
-        formData.append('referral_type', prospectData.referred_by_type);
-        formData.append('referral_source', prospectData.referred_by_type);
+        formData.append('referred_by_type', 'referral'); // Always use 'referral' for LEAP compatibility
+        formData.append('referral_type', 'referral');
       }
       if (prospectData.referred_by_id) {
         formData.append('referred_by_id', prospectData.referred_by_id.toString());
         formData.append('referral_id', prospectData.referred_by_id.toString());
+        formData.append('referral_source_id', prospectData.referred_by_id.toString());
       }
       if (prospectData.referred_by_note) {
         formData.append('referred_by_note', prospectData.referred_by_note);
@@ -1163,12 +1162,19 @@ export class LeapService {
         }
       }
 
-      // Log the actual form data being sent to debug referral fields
+      // Log the actual form data being sent to debug all fields
       const formDataEntries = Array.from(formData.entries());
-      const referralEntries = formDataEntries.filter(([key]) => key.includes('referred'));
-      logger.info("LEAP Referral Form Data Being Sent:", {
+      const referralEntries = formDataEntries.filter(([key]) => key.toLowerCase().includes('refer'));
+      
+      logger.info("LEAP Form Data - All Referral Fields Being Sent:", {
         referralEntries,
-        allFormDataKeys: formDataEntries.map(([key]) => key),
+        allReferralKeys: referralEntries.map(([key]) => key),
+        timestamp: new Date().toISOString()
+      });
+      
+      logger.info("LEAP Form Data - Complete Field List:", {
+        allFields: formDataEntries,
+        fieldCount: formDataEntries.length,
         timestamp: new Date().toISOString()
       });
 
@@ -1347,15 +1353,16 @@ export class LeapService {
         email: leadData.email,
         phones: [
           {
-            number: leadData.phone.replace(/\D/g, '').padStart(10, '0'), // Ensure minimum 10 digits
+            number: leadData.phone.replace(/\D/g, '').slice(-10), // Take last 10 digits for US numbers
             label: "home"
           }
         ],
-        company_name: leadData.referredBy || leadData.eventName, // Use actual event name for tracking
+        // company_name: leave blank for individual customers - don't use referral source
         rep_id: leadData.salesRepId || leadData.callCenterRepId || 88443, // Default to BDC Rep
         division_id: leadData.divisionId || 6496, // Default to Renovation division
-        referred_by_type: "other", // Always use 'other' for events
-        referred_by_note: leadData.referredBy || leadData.eventName, // Use actual event name
+        referred_by_id: leadData.referred_by_id || 62514, // Use selected referral source ID (default Facebook)
+        referred_by_type: "referral", // LEAP expects 'referral' for the dropdown to work
+        referred_by_note: leadData.referred_by_note || leadData.eventName, // Use referral note
         temp_id: Math.floor(Math.random() * 1000), // Generate a temp ID
         is_commercial: 0, // Assume residential
         call_required: 0,
@@ -1366,7 +1373,7 @@ export class LeapService {
           }
         ],
         job: {
-          name: `${lastName} - ${leadData.referredBy || leadData.eventName}`, // Temporary name, will be updated with job ID after creation
+          name: `${lastName}`, // Temporary simple name, will be updated with LEAP job ID after creation
           day: 0,
           hour: 0,
           min: 0,
@@ -1392,7 +1399,7 @@ export class LeapService {
         },
         address: {
           place_id: "", // You might want to use Google Places API
-          company_name: leadData.referredBy || leadData.eventName,
+          // company_name: leave blank for individual customers
           address: leadData.address.street,
           city: leadData.address.city, // Add explicit city field
           country: "United States",
@@ -1405,7 +1412,7 @@ export class LeapService {
         },
         billing: {
           place_id: "",
-          company_name: leadData.referredBy || leadData.eventName,
+          // company_name: leave blank for individual customers
           address: leadData.address.street,
           city: leadData.address.city, // Add explicit city field
           country: "United States",
@@ -1417,6 +1424,15 @@ export class LeapService {
           same_as_customer_address: 1
         }
       };
+
+      // Log referral source data for debugging
+      logger.info("LEAP Referral Source Data Being Sent:", {
+        referred_by_id: prospectData.referred_by_id,
+        referred_by_type: prospectData.referred_by_type,
+        referred_by_note: prospectData.referred_by_note,
+        customer_name: `${prospectData.first_name} ${prospectData.last_name}`,
+        timestamp: new Date().toISOString()
+      });
 
       // Check if this is an update to an existing customer/job
       if (leadData.leapJobId || leadData.leapCustomerId) {
@@ -1438,7 +1454,7 @@ export class LeapService {
               email: leadData.email,
               phones: [
                 {
-                  number: leadData.phone.replace(/\D/g, '').padStart(10, '0'),
+                  number: leadData.phone.replace(/\D/g, '').slice(-10), // Take last 10 digits for US numbers
                   type: "home" as const,
                   label: "home",
                   primary: true
@@ -1453,8 +1469,8 @@ export class LeapService {
                   country: "United States"
                 }
               ],
-              status: "active" as const,
-              company_name: leadData.referredBy || leadData.eventName
+              status: "active" as const
+              // company_name: leave blank for individual customers
             };
             
             await this.updateCustomer(leadData.leapCustomerId, customerUpdateData);

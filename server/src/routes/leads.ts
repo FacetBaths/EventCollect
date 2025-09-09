@@ -59,20 +59,23 @@ router.post("/preview-csv", upload.single('csvFile'), async (req, res) => {
     let leapData = {
       salesReps: [] as any[],
       trades: [] as any[],
-      divisions: [] as any[]
+      divisions: [] as any[],
+      referralSources: [] as any[]
     };
     
     if (process.env.ENABLE_LEAP_SYNC === "true") {
       try {
-        const [salesRepsResponse, tradesResponse, divisionsResponse] = await Promise.all([
+        const [salesRepsResponse, tradesResponse, divisionsResponse, referralSourcesResponse] = await Promise.all([
           leapService.getSalesReps(),
           leapService.getCompanyTrades(),
-          leapService.getDivisions()
+          leapService.getDivisions(),
+          leapService.getReferralTypes()
         ]);
         
         leapData.salesReps = salesRepsResponse?.data || [];
         leapData.trades = tradesResponse?.data || [];
         leapData.divisions = divisionsResponse?.data || [];
+        leapData.referralSources = referralSourcesResponse?.data || [];
       } catch (leapError: any) {
         logger.warn("Could not fetch LEAP data for preview", { error: leapError.message });
       }
@@ -110,7 +113,7 @@ router.post("/preview-csv", upload.single('csvFile'), async (req, res) => {
 // POST /api/leads/import-from-preview - Import leads from preview data (after user edits)
 router.post("/import-from-preview", async (req, res) => {
   try {
-    const { leads } = req.body;
+    const { leads, enableLeapSync } = req.body;
     
     if (!leads || !Array.isArray(leads) || leads.length === 0) {
       return res.status(400).json({
@@ -148,12 +151,38 @@ router.post("/import-from-preview", async (req, res) => {
       logger.warn("Could not create/find Facebook event", { error: eventError.message });
     }
 
+    // Get referral sources for mapping referral IDs to names
+    let referralSourcesMap = new Map();
+    if (process.env.ENABLE_LEAP_SYNC === "true") {
+      try {
+        const referralSourcesResponse = await leapService.getReferralTypes();
+        if (referralSourcesResponse?.data) {
+          referralSourcesResponse.data.forEach((source: any) => {
+            referralSourcesMap.set(source.id, source.name);
+          });
+        }
+      } catch (error: any) {
+        logger.warn("Could not fetch referral sources for mapping", { error: error.message });
+      }
+    }
+
     // Process each lead
     for (const leadData of leads) {
       try {
         // Set event information
         if (facebookEvent) {
           leadData.eventName = facebookEvent.name;
+        }
+        
+        // Apply referral source information if provided
+        if (leadData.referralSourceId) {
+          const referralSourceName = referralSourcesMap.get(leadData.referralSourceId);
+          leadData.referredBy = referralSourceName || 'Unknown Source';
+          leadData.referred_by_type = referralSourceName || 'Unknown Source';
+          leadData.referred_by_id = leadData.referralSourceId;
+          // Update the referral note to include the source name
+          const originalNote = leadData.referred_by_note || 'Lead Form';
+          leadData.referred_by_note = `${referralSourceName || 'Unknown Source'} - ${originalNote}`;
         }
 
         const newLead = new Lead({
@@ -168,8 +197,8 @@ router.post("/import-from-preview", async (req, res) => {
           name: savedLead.fullName
         });
         
-        // Automatically sync to LEAP if enabled
-        if (process.env.ENABLE_LEAP_SYNC === "true") {
+        // Automatically sync to LEAP if enabled and allowed by batch setting
+        if (process.env.ENABLE_LEAP_SYNC === "true" && enableLeapSync !== false) {
           try {
             const syncResult = await leapService.syncLead({
               fullName: newLead.fullName,

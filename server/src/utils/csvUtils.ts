@@ -67,10 +67,11 @@ export async function parseFacebookCsv(filePath: string): Promise<ParsedLead[]> 
             tempRating: undefined,
             notes: `Imported from Facebook on ${row.Created || ''} | Source: ${row.Source || ''} | Channel: ${row.Channel || ''}`.trim(),
             eventName: 'Facebook Lead Ad',
-            referredBy: 'Facebook',
-            referred_by_type: 'Marketing',
-            referred_by_id: 20, // Example: 20 = Facebook (adjust per your LEAP config)
-            referred_by_note: (row.Form || 'Facebook Lead Form')?.toString().slice(0, 200),
+            // Referral source will be applied during import based on user selection
+            referredBy: '',
+            referred_by_type: '',
+            referred_by_id: undefined,
+            referred_by_note: (row.Form || 'Lead Form')?.toString().slice(0, 200),
           };
 
           results.push(parsed);

@@ -265,6 +265,62 @@ router.get("/referral-types", async (req, res) => {
   }
 });
 
+// Find Facebook referral ID - Temporary helper endpoint
+router.get("/find-facebook-id", async (req, res) => {
+  try {
+    logger.info("Searching for Facebook referral ID");
+    
+    const referralTypes = await leapService.getReferralTypes();
+    
+    if (referralTypes.success && referralTypes.data) {
+      const allReferrals = referralTypes.data;
+      
+      // Look for Facebook-related entries
+      const facebookReferrals = allReferrals.filter((referral: any) => {
+        const name = (referral.name || referral.title || referral.label || '').toLowerCase();
+        return name.includes('facebook') || name.includes('fb') || name.includes('social');
+      });
+      
+      // Log all referrals for debugging
+      logger.info("All referral sources found:", {
+        total: allReferrals.length,
+        referrals: allReferrals.map((r: any) => ({
+          id: r.id,
+          name: r.name || r.title || r.label,
+          type: r.type || 'N/A'
+        }))
+      });
+      
+      res.json({
+        success: true,
+        message: `Found ${facebookReferrals.length} Facebook-related referral sources`,
+        data: {
+          facebookReferrals,
+          allReferrals: allReferrals.map((r: any) => ({
+            id: r.id,
+            name: r.name || r.title || r.label,
+            type: r.type || 'N/A'
+          })),
+          totalCount: allReferrals.length
+        }
+      });
+    } else {
+      throw new Error('No referral data returned from LEAP');
+    }
+  } catch (error: any) {
+    logger.error("Failed to find Facebook referral ID", {
+      message: error.message,
+      stack: error.stack,
+      responseData: error.response?.data || "No additional data",
+    });
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to find Facebook referral ID",
+      details: error.response?.data || null,
+    });
+  }
+});
+
 // Get sales reps
 router.get("/sales-reps", async (req, res) => {
   try {
