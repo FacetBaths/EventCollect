@@ -300,6 +300,23 @@ export const apiService = {
   },
 
   // CSV Import
+  async previewLeadsFromCsv(file: File): Promise<ApiResponse<any>> {
+    const formData = new FormData();
+    formData.append('csvFile', file);
+    
+    const response = await api.post('/leads/preview-csv', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  async importLeadsFromPreview(leads: any[]): Promise<ApiResponse<any>> {
+    const response = await api.post('/leads/import-from-preview', { leads });
+    return response.data;
+  },
+
   async importLeadsFromCsv(file: File): Promise<ApiResponse<any>> {
     const formData = new FormData();
     formData.append('csvFile', file);
