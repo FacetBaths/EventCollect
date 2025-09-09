@@ -1,12 +1,224 @@
 import express from "express";
 import mongoose from "mongoose";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { Lead, ILead } from "../models/Lead";
 import { Event } from "../models/Event";
 import { Appointment } from "../models/Appointment";
 import { leapService } from "../services/leapService";
 import { logger } from "../utils/logger";
+import { parseFacebookCsv, ParsedLead } from "../utils/csvUtils";
 
 const router = express.Router();
+
+// Configure multer for CSV file uploads
+const upload = multer({
+  dest: 'uploads/',
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'text/csv' || file.originalname.toLowerCase().endsWith('.csv')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only CSV files are allowed'));
+    }
+  },
+});
+
+// POST /api/leads/import-csv - Import Facebook leads from CSV
+router.post("/import-csv", upload.single('csvFile'), async (req, res) => {
+  let tempFilePath: string | undefined;
+  
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: "No CSV file uploaded",
+      });
+    }
+
+    tempFilePath = req.file.path;
+    logger.info("Processing CSV import", { 
+      filename: req.file.originalname, 
+      size: req.file.size 
+    });
+
+    // Parse CSV file
+    const parsedLeads = await parseFacebookCsv(tempFilePath);
+    
+    if (parsedLeads.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "No valid leads found in CSV file",
+      });
+    }
+
+    const results = {
+      totalProcessed: parsedLeads.length,
+      successful: 0,
+      failed: 0,
+      errors: [] as string[],
+      importedLeads: [] as any[]
+    };
+
+    // Get or create "Facebook Lead Ad" event
+    let facebookEvent;
+    try {
+      facebookEvent = await Event.findOne({ name: "Facebook Lead Ad" });
+      if (!facebookEvent) {
+        facebookEvent = new Event({
+          name: "Facebook Lead Ad",
+          description: "Leads imported from Facebook Lead Ads",
+          date: new Date(),
+          location: "Online",
+          isActive: false
+        });
+        await facebookEvent.save();
+        logger.info("Created Facebook Lead Ad event", { eventId: facebookEvent._id });
+      }
+    } catch (eventError: any) {
+      logger.warn("Could not create/find Facebook event", { error: eventError.message });
+    }
+
+    // Process each parsed lead
+    for (const parsedLead of parsedLeads) {
+      try {
+        // Set event information
+        if (facebookEvent) {
+          parsedLead.eventName = facebookEvent.name;
+        }
+
+        const leadData: ILead = {
+          ...parsedLead,
+          divisionId: 6496, // Default to Renovation division
+          syncStatus: "pending",
+        } as ILead;
+
+        const newLead = new Lead(leadData);
+        const savedLead = await newLead.save();
+        
+        logger.info("Facebook lead imported successfully", { 
+          leadId: savedLead._id,
+          email: savedLead.email,
+          name: savedLead.fullName
+        });
+        
+        // Automatically sync to LEAP if enabled
+        if (process.env.ENABLE_LEAP_SYNC === "true") {
+          try {
+            const syncResult = await leapService.syncLead({
+              fullName: newLead.fullName,
+              email: newLead.email,
+              phone: newLead.phone,
+              address: newLead.address,
+              servicesOfInterest: newLead.servicesOfInterest,
+              tradeIds: newLead.tradeIds,
+              workTypeIds: newLead.workTypeIds,
+              salesRepId: newLead.salesRepId,
+              callCenterRepId: newLead.callCenterRepId,
+              divisionId: newLead.divisionId || 6496,
+              tempRating: newLead.tempRating,
+              notes: newLead.notes || "",
+              eventName: newLead.eventName || "Facebook Lead Ad",
+              referredBy: newLead.referredBy,
+              referred_by_type: newLead.referred_by_type,
+              referred_by_id: newLead.referred_by_id,
+              referred_by_note: newLead.referred_by_note,
+              appointmentDetails: newLead.wantsAppointment ? {
+                preferredDate: newLead.appointmentDetails?.preferredDate || "",
+                preferredTime: newLead.appointmentDetails?.preferredTime || "",
+                notes: newLead.appointmentDetails?.notes || "",
+              } : undefined,
+              leadId: newLead._id?.toString(),
+              leapCustomerId: newLead.leapCustomerId,
+              leapJobId: newLead.leapJobId,
+            });
+            
+            // Update lead with LEAP sync results
+            const prospectId = syncResult.data?.id || syncResult.data?.prospect?.id;
+            newLead.leapProspectId = prospectId?.toString();
+            
+            const customerData = syncResult.data?.customer || syncResult.data;
+            if (customerData?.id) {
+              newLead.leapCustomerId = customerData.id.toString();
+            }
+            
+            const jobData = syncResult.data?.job || syncResult.data;
+            if (jobData?.id) {
+              newLead.leapJobId = jobData.id.toString();
+            }
+            
+            newLead.syncStatus = "synced";
+            await newLead.save();
+            
+            logger.info("Facebook lead synced to LEAP successfully", { 
+              leadId: newLead._id,
+              prospectId: newLead.leapProspectId,
+            });
+          } catch (syncError: any) {
+            logger.error("Failed to sync Facebook lead to LEAP", {
+              leadId: newLead._id,
+              error: syncError.message,
+            });
+            
+            newLead.syncStatus = "error";
+            newLead.syncError = syncError.message;
+            await newLead.save();
+          }
+        }
+        
+        results.successful++;
+        results.importedLeads.push({
+          id: savedLead._id,
+          name: savedLead.fullName,
+          email: savedLead.email,
+          syncStatus: savedLead.syncStatus
+        });
+      } catch (error: any) {
+        logger.error("Failed to import Facebook lead", {
+          leadData: parsedLead,
+          error: error.message,
+        });
+        
+        results.failed++;
+        results.errors.push(`${parsedLead.fullName || parsedLead.email}: ${error.message}`);
+      }
+    }
+
+    logger.info("CSV import completed", {
+      filename: req.file.originalname,
+      totalProcessed: results.totalProcessed,
+      successful: results.successful,
+      failed: results.failed
+    });
+
+    const hasErrors = results.failed > 0;
+    res.status(hasErrors ? 207 : 200).json({ // 207 = Multi-Status for partial success
+      success: results.successful > 0,
+      message: `Import completed: ${results.successful} successful, ${results.failed} failed`,
+      data: results
+    });
+  } catch (error: any) {
+    logger.error("Error during CSV import", {
+      error: error.message,
+      stack: error.stack,
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: "Error processing CSV file",
+      message: error.message,
+    });
+  } finally {
+    // Clean up temporary file
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+      logger.info("Cleaned up temporary CSV file", { path: tempFilePath });
+    }
+  }
+});
 
 // GET /api/leads
 router.get("/", async (req, res) => {

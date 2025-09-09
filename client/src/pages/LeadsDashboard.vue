@@ -23,6 +23,15 @@
         icon="sync"
         :loading="syncingAll"
       />
+      <q-btn 
+        label="Import From CSV"
+        @click="showCsvImport = true"
+        color="secondary"
+        icon="file_upload"
+        :loading="false"
+      >  
+        <q-tooltip>Import Facebook leads from CSV file</q-tooltip>
+      </q-btn>
       <q-space />
       <div class="text-caption">
         Showing {{ filteredLeads.length }} of {{ allLeads.length }} leads
@@ -708,6 +717,12 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+    
+    <!-- CSV Import Dialog -->
+    <CsvImportDialog 
+      v-model="showCsvImport" 
+      @import-completed="onCsvImportCompleted" 
+    />
   </q-page>
 </template>
 
@@ -717,6 +732,7 @@ import { apiService } from '../services/api';
 import { Notify } from 'quasar';
 import AppointmentScheduler from '../components/AppointmentScheduler.vue';
 import LeadCard from '../components/LeadCard.vue';
+import CsvImportDialog from '../components/CsvImportDialog.vue';
 import { useEventStore } from '../stores/event-store';
 import { useCopyLead } from '../composables/useCopyLead';
 
@@ -771,6 +787,7 @@ const resyncAfterSave = ref(false);
 const showAllEvents = ref(true); // Default to showing all events since we may not have an active event
 const editLeadDialog = ref(false);
 const appointmentDialog = ref(false);
+const showCsvImport = ref(false);
 const selectedLead = ref<Lead | null>(null);
 const eventStore = useEventStore();
 
@@ -1171,6 +1188,34 @@ async function deleteLead(leadId: string) {
       type: 'negative',
       message: 'Failed to delete lead. Please try again.',
       timeout: 3000,
+    });
+  }
+}
+
+// CSV import completion handler
+async function onCsvImportCompleted(results: any) {
+  console.log('CSV import completed:', results);
+  showCsvImport.value = false;
+  
+  // Refresh the leads list to show the new imports
+  await fetchLeads();
+  
+  // Show detailed notification
+  if (results.successful > 0) {
+    Notify.create({
+      type: results.failed > 0 ? 'warning' : 'positive',
+      message: `Successfully imported ${results.successful} Facebook leads${results.failed > 0 ? `. ${results.failed} leads failed to import.` : '.'}`,
+      timeout: 6000,
+      actions: [
+        {
+          label: 'View Leads',
+          color: 'white',
+          handler: () => {
+            // Scroll to top to see new leads
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }
+        }
+      ]
     });
   }
 }

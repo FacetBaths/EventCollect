@@ -298,6 +298,19 @@ export const apiService = {
     const response = await api.get('/appointments/stats/summary', { params });
     return response.data;
   },
+
+  // CSV Import
+  async importLeadsFromCsv(file: File): Promise<ApiResponse<any>> {
+    const formData = new FormData();
+    formData.append('csvFile', file);
+    
+    const response = await api.post('/leads/import-csv', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
 };
 
 export default api;
