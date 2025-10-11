@@ -121,15 +121,9 @@ export const apiService = {
     if (endDate) params.endDate = endDate;
     if (userId) params.userId = userId;
     
-    // Try local appointment system first, fallback to LEAP
-    try {
-      const response = await api.get('/appointments', { params });
-      return response.data;
-    } catch (error) {
-      console.warn('Local appointments failed, trying LEAP sync endpoint:', error);
-      const response = await api.get('/leap-sync/appointments', { params });
-      return response.data;
-    }
+    // Only use local MongoDB appointments (LEAP getAppointments API is not available)
+    const response = await api.get('/appointments', { params });
+    return response.data;
   },
 
   async checkAppointmentAvailability(date: string, timeSlots?: string[], userId?: string): Promise<ApiResponse<any>> {
@@ -141,24 +135,12 @@ export const apiService = {
       if (timeSlots) params.timeSlots = timeSlots.join(',');
       if (userId) params.userId = userId;
       
-      console.log('API Service - Calling availability endpoint with params:', params);
+      console.log('API Service - Calling local availability endpoint with params:', params);
       
-      // Try local appointment availability first
-      try {
-        const response = await api.get('/appointments/availability/check', { params });
-        console.log('API Service - Local availability response:', response.data);
-        return response.data;
-      } catch (localError) {
-        console.warn('Local availability failed, trying LEAP sync:', localError);
-      // Fallback to LEAP sync endpoint
-      const leapParams: any = { date };
-      if (timeSlots) leapParams.timeSlots = timeSlots.join(',');
-      if (userId) leapParams.userId = userId;
-        
-        const response = await api.get('/leap-sync/availability', { params: leapParams });
-        console.log('API Service - LEAP availability response:', response.data);
-        return response.data;
-      }
+      // Use local MongoDB appointments for availability (LEAP doesn't have getAppointments API)
+      const response = await api.get('/appointments/availability/check', { params });
+      console.log('API Service - Local availability response:', response.data);
+      return response.data;
     } catch (error: any) {
       console.error('API Service - Error in checkAppointmentAvailability:', error);
       console.error('API Service - Error response:', error.response?.data);

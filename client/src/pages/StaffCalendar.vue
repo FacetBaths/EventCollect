@@ -198,20 +198,26 @@ async function fetchStaffAvailability() {
     const response = await apiService.getAppointments(startDate, endDate);
 
     if (response.success && response.data) {
-      // Handle different response structures from LEAP API
+      // Handle response from MongoDB appointments API
       const data = response.data.data || response.data;
 
       if (Array.isArray(data)) {
-        // Process calendar events/appointments
-        calendarEvents.value = data.map((event: any, index: number) => ({
-          id: event.id || index,
-          date: event.date || event.start_date || '',
-          time: event.start_time || event.time || '',
-          endTime: event.end_time || '',
-          title: event.title || event.job_name || event.description || `Appointment ${index + 1}`,
-          description: event.notes || event.description || '',
-          status: event.status || 'scheduled',
-          staffId: event.staff_id || event.user_id || '',
+        // Process MongoDB appointments - map to expected format
+        calendarEvents.value = data.map((appointment: any, index: number) => ({
+          id: appointment._id || appointment.id || index,
+          date: appointment.date ? new Date(appointment.date).toISOString().split('T')[0] : '',
+          time: appointment.timeSlot || '',  // MongoDB uses timeSlot field
+          timeSlot: appointment.timeSlot || '',
+          endTime: '', // Not used in our simple 3-slot system
+          title: `${appointment.customerName} - ${appointment.servicesOfInterest?.join(', ') || 'Appointment'}`,
+          description: appointment.notes || '',
+          status: appointment.status || 'scheduled',
+          staffId: appointment.staffMemberId || '',
+          customerName: appointment.customerName || '',
+          customerEmail: appointment.customerEmail || '',
+          customerPhone: appointment.customerPhone || '',
+          servicesOfInterest: appointment.servicesOfInterest || [],
+          eventName: appointment.eventName || ''
         }));
       } else {
         calendarEvents.value = [];
@@ -258,10 +264,10 @@ async function fetchStaffAvailability() {
 function getAppointmentsForDateTime(date: string, time: string): any[] {
   return calendarEvents.value.filter(event => {
     const eventDate = event.date;
-    const eventTime = event.time;
+    const eventTimeSlot = event.timeSlot || event.time;
     
-    // Simple time matching - in a real app you'd want more sophisticated time parsing
-    return eventDate === date && eventTime && eventTime.includes(time.split(' ')[0]);
+    // Match exact time slot (e.g., "10:00 AM" === "10:00 AM")
+    return eventDate === date && eventTimeSlot === time;
   });
 }
 

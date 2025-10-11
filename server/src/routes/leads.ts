@@ -7,6 +7,7 @@ import { Lead, ILead } from "../models/Lead";
 import { Event } from "../models/Event";
 import { Appointment } from "../models/Appointment";
 import { leapService } from "../services/leapService";
+import { appointmentService } from "../services/appointmentService";
 import { logger } from "../utils/logger";
 import { parseFacebookCsv, ParsedLead } from "../utils/csvUtils";
 
@@ -546,25 +547,23 @@ router.post("/", async (req, res) => {
       wantsAppointment: savedLead.wantsAppointment
     });
     
-    // Create appointment record immediately if customer wants an appointment
+    // Create appointment using appointment service API if customer wants an appointment
     let appointmentRecord = null;
     if (newLead.wantsAppointment && newLead.appointmentDetails) {
       try {
-        logger.info("Creating appointment record for lead", { 
+        logger.info("Creating appointment via appointment service for lead", { 
           leadId: newLead._id,
           preferredDate: newLead.appointmentDetails.preferredDate,
           preferredTime: newLead.appointmentDetails.preferredTime
         });
         
-        appointmentRecord = new Appointment({
+        const appointmentData = {
           leadId: (newLead._id as any).toString(),
-          date: new Date(newLead.appointmentDetails.preferredDate),
-          timeSlot: newLead.appointmentDetails.preferredTime,
-          notes: newLead.appointmentDetails.notes || "",
           customerName: newLead.fullName,
           customerEmail: newLead.email,
           customerPhone: newLead.phone,
-          status: "scheduled",
+          date: new Date(newLead.appointmentDetails.preferredDate), // Parse date string to Date object
+          timeSlot: newLead.appointmentDetails.preferredTime,
           address: {
             street: newLead.address.street,
             city: newLead.address.city,
@@ -572,21 +571,24 @@ router.post("/", async (req, res) => {
             zipCode: newLead.address.zipCode,
           },
           servicesOfInterest: newLead.servicesOfInterest,
+          notes: newLead.appointmentDetails.notes || "",
           tradeIds: newLead.tradeIds,
           salesRepId: newLead.salesRepId,
           eventName: newLead.eventName,
-        });
+          createdBy: "lead-form"
+        };
         
-        await appointmentRecord.save();
+        // Use appointmentService to create appointment (handles availability checking)
+        appointmentRecord = await appointmentService.createAppointment(appointmentData);
         
-        logger.info("Appointment record created successfully", {
+        logger.info("Appointment created successfully via appointment service", {
           leadId: newLead._id,
           appointmentId: appointmentRecord._id,
           date: appointmentRecord.date,
           timeSlot: appointmentRecord.timeSlot
         });
       } catch (appointmentError: any) {
-        logger.error("Failed to create appointment record", {
+        logger.error("Failed to create appointment via appointment service", {
           leadId: newLead._id,
           error: appointmentError.message,
           stack: appointmentError.stack,
