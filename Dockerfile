@@ -8,13 +8,13 @@ COPY server/package*.json ./
 COPY server/ ./
 
 # Install all dependencies (including dev deps for build)
-RUN npm install
+RUN yarn install
 
 # Build the application
-RUN npm run build
+RUN yarn build
 
 # Remove dev dependencies for production
-RUN npm prune --omit=dev
+RUN yarn install --production
 
 # Expose port
 EXPOSE 3001
