@@ -3,6 +3,11 @@ import { logger } from "../utils/logger";
 import { appointmentService } from "./appointmentService";
 
 // LEAP API Types based on your existing API
+interface SyncOptions {
+  mode?: "create" | "update";
+  allowProspectCreateOnMissing?: boolean;
+}
+
 interface LeapCustomer {
   id?: string | number;
   first_name: string;
@@ -622,6 +627,202 @@ export class LeapService {
   }
 
   /**
+   * Get customer by ID from LEAP CRM
+   */
+  async getCustomerById(customerId: string | number): Promise<LeapApiResponse<LeapCustomer | null>> {
+    try {
+      logger.info("Getting customer by ID from LEAP CRM", { customerId });
+
+      const response: AxiosResponse = await this.apiClient.get(
+        `/customers/${customerId}`,
+      );
+
+      logger.info("Customer retrieved successfully from LEAP CRM", {
+        customerId: response.data.data?.id || customerId,
+      });
+
+      return {
+        success: true,
+        data: response.data.data || response.data,
+        status: response.status,
+        message: "Customer retrieved successfully",
+      };
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        logger.info("Customer not found in LEAP CRM", { customerId });
+        return {
+          success: false,
+          data: null,
+          status: 404,
+          message: "Customer not found",
+        };
+      }
+      logger.error("Failed to get customer from LEAP CRM", error);
+      throw new Error(
+        `LEAP CRM Error: ${error.response?.data?.message || error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Get job by ID from LEAP CRM
+   */
+  async getJobById(jobId: string | number): Promise<LeapApiResponse<LeapJob | null>> {
+    try {
+      logger.info("Getting job by ID from LEAP CRM", { jobId });
+
+      const response: AxiosResponse = await this.apiClient.get(
+        `/jobs/${jobId}`,
+      );
+
+      logger.info("Job retrieved successfully from LEAP CRM", {
+        jobId: response.data.data?.id || jobId,
+      });
+
+      return {
+        success: true,
+        data: response.data.data || response.data,
+        status: response.status,
+        message: "Job retrieved successfully",
+      };
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        logger.info("Job not found in LEAP CRM", { jobId });
+        return {
+          success: false,
+          data: null,
+          status: 404,
+          message: "Job not found",
+        };
+      }
+      logger.error("Failed to get job from LEAP CRM", error);
+      throw new Error(
+        `LEAP CRM Error: ${error.response?.data?.message || error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Find customer by email or phone in LEAP CRM
+   */
+  async findCustomerByEmailOrPhone(
+    email: string,
+    phone: string,
+  ): Promise<LeapApiResponse<LeapCustomer | null>> {
+    try {
+      logger.info("Finding customer by email/phone in LEAP CRM", { email, phone });
+
+      // Try different possible endpoints for customer search
+      const possibleEndpoints = [
+        `/customers?email=${encodeURIComponent(email)}`,
+        `/customers?search=${encodeURIComponent(email)}`,
+        `/customers?search=${phone.replace(/\D/g, '').slice(-4)}`, // Last 4 digits
+        `/company/customers?email=${encodeURIComponent(email)}`,
+      ];
+
+      let response: AxiosResponse;
+      let lastError: any;
+
+      for (const endpoint of possibleEndpoints) {
+        try {
+          response = await this.apiClient.get(endpoint);
+          logger.info(`Found customer data at endpoint: ${endpoint}`);
+          
+          // Check if we got results
+          const customers = response.data.data || response.data;
+          if (Array.isArray(customers) && customers.length > 0) {
+            const customer = customers[0]; // Take first match
+            return {
+              success: true,
+              data: customer,
+              status: response.status,
+              message: "Customer found successfully",
+            };
+          } else if (!Array.isArray(customers) && customers?.id) {
+            // Single customer object
+            return {
+              success: true,
+              data: customers,
+              status: response.status,
+              message: "Customer found successfully",
+            };
+          }
+          break;
+        } catch (error: any) {
+          lastError = error;
+          logger.debug(`Endpoint ${endpoint} failed:`, error.response?.status);
+        }
+      }
+
+      logger.info("No customer found matching email/phone", { email, phone });
+      return {
+        success: false,
+        data: null,
+        status: 404,
+        message: "Customer not found",
+      };
+    } catch (error: any) {
+      logger.error("Failed to find customer by email/phone in LEAP CRM", error);
+      throw new Error(
+        `LEAP CRM Error: ${error.response?.data?.message || error.message}`,
+      );
+    }
+  }
+
+  /**
+   * List jobs by customer ID in LEAP CRM
+   */
+  async listJobsByCustomerId(
+    customerId: string | number,
+  ): Promise<LeapApiResponse<LeapJob[]>> {
+    try {
+      logger.info("Listing jobs by customer ID from LEAP CRM", { customerId });
+
+      // Try different possible endpoints for job listing
+      const possibleEndpoints = [
+        `/jobs?customer_id=${customerId}`,
+        `/customers/${customerId}/jobs`,
+      ];
+
+      let response: AxiosResponse;
+      let lastError: any;
+
+      for (const endpoint of possibleEndpoints) {
+        try {
+          response = await this.apiClient.get(endpoint);
+          logger.info(`Found jobs data at endpoint: ${endpoint}`);
+          break;
+        } catch (error: any) {
+          lastError = error;
+          logger.debug(`Endpoint ${endpoint} failed:`, error.response?.status);
+        }
+      }
+
+      if (!response!) {
+        throw lastError;
+      }
+
+      const jobs = response.data.data || response.data || [];
+      logger.info("Jobs retrieved successfully from LEAP CRM", {
+        customerId,
+        jobCount: Array.isArray(jobs) ? jobs.length : 0,
+      });
+
+      return {
+        success: true,
+        data: Array.isArray(jobs) ? jobs : [jobs].filter(Boolean),
+        status: response.status,
+        message: "Jobs retrieved successfully",
+      };
+    } catch (error: any) {
+      logger.error("Failed to list jobs by customer ID from LEAP CRM", error);
+      throw new Error(
+        `LEAP CRM Error: ${error.response?.data?.message || error.message}`,
+      );
+    }
+  }
+
+  /**
    * Test connection to LEAP CRM
    */
   async testConnection(): Promise<LeapApiResponse<any>> {
@@ -660,6 +861,344 @@ export class LeapService {
       throw new Error(
         `${errorMessage} (Status: ${statusCode || "unknown"}, Details: ${JSON.stringify(errorDetails) || "none"})`,
       );
+    }
+  }
+
+  /**
+   * Safely update customer and job without creating duplicates
+   * This is the core method that handles update mode logic
+   */
+  private async updateCustomerAndJobSafely(
+    leadData: any,
+    options: SyncOptions = {}
+  ): Promise<LeapApiResponse<any>> {
+    try {
+      const { mode = "create", allowProspectCreateOnMissing = true } = options;
+      
+      logger.info("Starting safe customer and job update", {
+        leadId: leadData.leadId,
+        leapCustomerId: leadData.leapCustomerId,
+        leapJobId: leadData.leapJobId,
+        mode,
+        allowProspectCreateOnMissing
+      });
+
+      let resolvedCustomerId: string | number | null = null;
+      let resolvedJobId: string | number | null = null;
+      const created = { customer: false, job: false };
+
+      // Parse name for customer operations
+      const nameParts = leadData.fullName.trim().split(" ");
+      const firstName = nameParts[0] || "Unknown";
+      const lastName = nameParts.slice(1).join(" ") || "Customer";
+
+      // Step 1: Resolve customer ID
+      if (leadData.leapCustomerId) {
+        const customerResult = await this.getCustomerById(leadData.leapCustomerId);
+        if (customerResult.success && customerResult.data) {
+          resolvedCustomerId = leadData.leapCustomerId;
+          logger.info("Found existing customer by ID", { customerId: resolvedCustomerId });
+        } else {
+          logger.info("Customer ID not found, will search by email/phone", { 
+            customerId: leadData.leapCustomerId 
+          });
+        }
+      }
+
+      // If no customer found by ID, search by email/phone
+      if (!resolvedCustomerId) {
+        const searchResult = await this.findCustomerByEmailOrPhone(
+          leadData.email,
+          leadData.phone
+        );
+        if (searchResult.success && searchResult.data && searchResult.data.id) {
+          resolvedCustomerId = searchResult.data.id;
+          logger.info("Found existing customer by email/phone", { 
+            customerId: resolvedCustomerId 
+          });
+        }
+      }
+
+      // If still no customer and we're in strict update mode, create customer only
+      if (!resolvedCustomerId) {
+        if (!allowProspectCreateOnMissing) {
+          logger.info("Creating customer only (strict update mode)", { leadId: leadData.leadId });
+          
+          const customerData = {
+            first_name: firstName,
+            last_name: lastName,
+            email: leadData.email,
+            phones: [
+              {
+                number: leadData.phone.replace(/\D/g, '').slice(-10),
+                type: "home" as const,
+                label: "home",
+                primary: true
+              }
+            ],
+            addresses: [
+              {
+                address_line_1: leadData.address.street,
+                city: leadData.address.city,
+                state: leadData.address.state,
+                zip: leadData.address.zipCode,
+                country: "United States"
+              }
+            ],
+            status: "active" as const
+          };
+          
+          const createResult = await this.createCustomer(customerData);
+          resolvedCustomerId = createResult.data?.id || null;
+          created.customer = true;
+          logger.info("Customer created successfully in strict mode", { 
+            customerId: resolvedCustomerId 
+          });
+        } else {
+          // In create mode, let the caller handle prospect creation
+          throw new Error("Customer not found - caller should handle prospect creation");
+        }
+      }
+
+      // Step 2: Resolve job ID
+      if (leadData.leapJobId && resolvedCustomerId) {
+        const jobResult = await this.getJobById(leadData.leapJobId);
+        if (jobResult.success && jobResult.data) {
+          resolvedJobId = leadData.leapJobId;
+          logger.info("Found existing job by ID", { jobId: resolvedJobId });
+        } else {
+          logger.info("Job ID not found, will search by customer ID", { 
+            jobId: leadData.leapJobId 
+          });
+        }
+      }
+
+      // If no job found by ID, search by customer ID
+      if (!resolvedJobId && resolvedCustomerId) {
+        const jobsResult = await this.listJobsByCustomerId(resolvedCustomerId);
+        if (jobsResult.success && jobsResult.data.length > 0) {
+          // Try to find job by address match or lead ID in description
+          const matchedJob = jobsResult.data.find(job => {
+            const addressMatch = job.address && 
+              job.address.address_line_1?.toLowerCase().includes(leadData.address.street.toLowerCase()) &&
+              job.address.zip === leadData.address.zipCode;
+            const descriptionMatch = job.description && 
+              leadData.leadId && 
+              job.description.includes(leadData.leadId);
+            return addressMatch || descriptionMatch;
+          });
+          
+          if (matchedJob && matchedJob.id) {
+            resolvedJobId = matchedJob.id;
+            logger.info("Found matching job by heuristics", { jobId: resolvedJobId });
+          } else {
+            // Take the most recent job
+            const sortedJobs = jobsResult.data.sort((a, b) => 
+              new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+            );
+            if (sortedJobs.length > 0 && sortedJobs[0].id) {
+              resolvedJobId = sortedJobs[0].id;
+              logger.info("Using most recent job", { jobId: resolvedJobId });
+            }
+          }
+        }
+      }
+
+      // If still no job, create one
+      if (!resolvedJobId && resolvedCustomerId) {
+        logger.info("Creating job for existing customer", { 
+          customerId: resolvedCustomerId,
+          leadId: leadData.leadId 
+        });
+        
+        // Build job description with appointment details, notes, and temp rating
+        const buildJobDescription = (data: any): string => {
+          let description = data.notes || `Lead from ${data.eventName}`;
+          
+          // Append appointment details if provided
+          if (data.appointmentDetails && (data.appointmentDetails.preferredDate || data.appointmentDetails.preferredTime || data.appointmentDetails.notes)) {
+            description += "\n\n--- APPOINTMENT REQUEST ---";
+            
+            if (data.appointmentDetails.preferredDate) {
+              const formattedDate = new Date(data.appointmentDetails.preferredDate).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric', 
+                month: 'long',
+                day: 'numeric'
+              });
+              description += `\nPreferred Date: ${formattedDate}`;
+            }
+            
+            if (data.appointmentDetails.preferredTime) {
+              description += `\nPreferred Time: ${data.appointmentDetails.preferredTime}`;
+            }
+            
+            if (data.appointmentDetails.notes && data.appointmentDetails.notes.trim()) {
+              description += `\nAppointment Notes: ${data.appointmentDetails.notes.trim()}`;
+            }
+          }
+          // Handle case where only appointment notes exist (no date/time preferences)
+          else if (data.appointmentDetails && data.appointmentDetails.notes && data.appointmentDetails.notes.trim()) {
+            description += `\n\n--- APPOINTMENT NOTES ---`;
+            description += `\n${data.appointmentDetails.notes.trim()}`;
+          }
+          
+          // Append temp rating if provided
+          if (data.tempRating && data.tempRating >= 1 && data.tempRating <= 10) {
+            description += `\n\nTemp: ${data.tempRating}/10`;
+          }
+          
+          return description;
+        };
+        
+        const jobData = {
+          name: `${lastName} - ${leadData.eventName || 'Lead'}`,
+          customer_id: resolvedCustomerId,
+          description: buildJobDescription(leadData),
+          trades: (leadData.tradeIds && leadData.tradeIds.length > 0) ? leadData.tradeIds : [105], // Default to BATH REMODEL
+          same_as_customer_address: 1,
+          address: {
+            address_line_1: leadData.address.street,
+            city: leadData.address.city,
+            state: leadData.address.state,
+            zip: leadData.address.zipCode,
+            country: "United States"
+          },
+          referral_source: leadData.referredBy || leadData.eventName,
+          work_types: (leadData.workTypeIds && leadData.workTypeIds.length > 0) ? leadData.workTypeIds : [91139], // Default to Full Remodel
+          other_trade_type_description: leadData.servicesOfInterest?.join(", ") || "",
+          appointment_required: leadData.appointmentDetails ? 1 : 0,
+          status: "new" as const
+        };
+        
+        const createJobResult = await this.createJob(jobData);
+        resolvedJobId = createJobResult.data?.id || null;
+        created.job = true;
+        logger.info("Job created successfully", { jobId: resolvedJobId });
+      }
+
+      // Step 3: Update existing entities
+      if (resolvedCustomerId) {
+        const customerUpdateData = {
+          first_name: firstName,
+          last_name: lastName,
+          email: leadData.email,
+          phones: [
+            {
+              number: leadData.phone.replace(/\D/g, '').slice(-10),
+              type: "home" as const,
+              label: "home",
+              primary: true
+            }
+          ],
+          addresses: [
+            {
+              address_line_1: leadData.address.street,
+              city: leadData.address.city,
+              state: leadData.address.state,
+              zip: leadData.address.zipCode,
+              country: "United States"
+            }
+          ],
+          status: "active" as const
+        };
+        
+        await this.updateCustomer(resolvedCustomerId, customerUpdateData);
+        logger.info("Customer updated successfully", { customerId: resolvedCustomerId });
+      }
+
+      if (resolvedJobId && resolvedCustomerId) {
+        // Build job description with appointment details, notes, and temp rating
+        const buildJobDescription = (data: any): string => {
+          let description = data.notes || `Lead from ${data.eventName}`;
+          
+          // Append appointment details if provided
+          if (data.appointmentDetails && (data.appointmentDetails.preferredDate || data.appointmentDetails.preferredTime || data.appointmentDetails.notes)) {
+            description += "\n\n--- APPOINTMENT REQUEST ---";
+            
+            if (data.appointmentDetails.preferredDate) {
+              const formattedDate = new Date(data.appointmentDetails.preferredDate).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric', 
+                month: 'long',
+                day: 'numeric'
+              });
+              description += `\nPreferred Date: ${formattedDate}`;
+            }
+            
+            if (data.appointmentDetails.preferredTime) {
+              description += `\nPreferred Time: ${data.appointmentDetails.preferredTime}`;
+            }
+            
+            if (data.appointmentDetails.notes && data.appointmentDetails.notes.trim()) {
+              description += `\nAppointment Notes: ${data.appointmentDetails.notes.trim()}`;
+            }
+          }
+          // Handle case where only appointment notes exist (no date/time preferences)
+          else if (data.appointmentDetails && data.appointmentDetails.notes && data.appointmentDetails.notes.trim()) {
+            description += `\n\n--- APPOINTMENT NOTES ---`;
+            description += `\n${data.appointmentDetails.notes.trim()}`;
+          }
+          
+          // Append temp rating if provided
+          if (data.tempRating && data.tempRating >= 1 && data.tempRating <= 10) {
+            description += `\n\nTemp: ${data.tempRating}/10`;
+          }
+          
+          return description;
+        };
+        
+        const jobUpdateData = {
+          description: buildJobDescription(leadData),
+          customer_id: resolvedCustomerId,
+          trades: (leadData.tradeIds && leadData.tradeIds.length > 0) ? leadData.tradeIds : [105],
+          same_as_customer_address: 1,
+          address: {
+            address_line_1: leadData.address.street,
+            city: leadData.address.city,
+            state: leadData.address.state,
+            zip: leadData.address.zipCode,
+            country: "United States"
+          },
+          referral_source: leadData.referredBy || leadData.eventName,
+          work_types: (leadData.workTypeIds && leadData.workTypeIds.length > 0) ? leadData.workTypeIds : [91139],
+          other_trade_type_description: leadData.servicesOfInterest?.join(", ") || "",
+          appointment_required: leadData.appointmentDetails ? 1 : 0
+          // Note: NOT setting 'name' to avoid unexpected renames during updates
+        };
+        
+        await this.updateJob(resolvedJobId, jobUpdateData);
+        logger.info("Job updated successfully", { jobId: resolvedJobId });
+      }
+
+      // Return normalized response
+      const result = {
+        success: true,
+        data: {
+          customer_id: resolvedCustomerId,
+          job_id: resolvedJobId,
+          job_ids: resolvedJobId ? [resolvedJobId] : [],
+          created
+        },
+        status: 200,
+        message: "Customer and job updated safely"
+      };
+
+      logger.info("Safe update completed successfully", {
+        leadId: leadData.leadId,
+        customerId: resolvedCustomerId,
+        jobId: resolvedJobId,
+        created
+      });
+
+      return result;
+    } catch (error: any) {
+      logger.error("Failed to safely update customer and job", {
+        leadId: leadData.leadId,
+        error: error.message,
+        stack: error.stack
+      });
+      throw error;
     }
   }
 
@@ -1251,9 +1790,10 @@ export class LeapService {
   }
 
   /**
-   * Sync a lead to LEAP CRM using the single Create Prospect API call
+   * Sync a lead to LEAP CRM using the single Create Prospect API call or safe update mode
    */
-  async syncLead(leadData: {
+  async syncLead(
+    leadData: {
     fullName: string;
     email: string;
     phone: string;
@@ -1284,9 +1824,18 @@ export class LeapService {
     leadId?: string; // MongoDB ObjectID for tracking
     leapCustomerId?: string; // LEAP CRM customer ID for updates
     leapJobId?: string; // LEAP CRM job ID for updates
-  }): Promise<LeapApiResponse<any>> {
+  },
+  options: SyncOptions = {}
+): Promise<LeapApiResponse<any>> {
     try {
-      logger.info("Starting lead sync to LEAP CRM using Create Prospect API", { leadData });
+      const { mode = "create", allowProspectCreateOnMissing = true } = options;
+      
+      logger.info("Starting lead sync to LEAP CRM", { 
+        leadData,
+        mode,
+        allowProspectCreateOnMissing,
+        hasLeapIds: !!(leadData.leapCustomerId || leadData.leapJobId)
+      });
 
       // Parse full name - ensure both first and last names are provided
       const nameParts = leadData.fullName.trim().split(" ");
@@ -1435,7 +1984,15 @@ export class LeapService {
       });
 
       // Check if this is an update to an existing customer/job
-      if (leadData.leapJobId || leadData.leapCustomerId) {
+      if ((leadData.leapJobId || leadData.leapCustomerId) && mode === "update") {
+        logger.info("Update mode detected - using safe update logic", {
+          leapCustomerId: leadData.leapCustomerId,
+          leapJobId: leadData.leapJobId,
+          leadId: leadData.leadId
+        });
+        
+        return await this.updateCustomerAndJobSafely(leadData, options);
+      } else if (leadData.leapJobId || leadData.leapCustomerId) {
         logger.info("Updating existing customer/job in LEAP CRM", {
           leapCustomerId: leadData.leapCustomerId,
           leapJobId: leadData.leapJobId,
@@ -1620,20 +2177,18 @@ export class LeapService {
           }
         }
         
-        // If customer or job no longer exists, recreate via prospect API
+        // If customer or job no longer exists, use safe update logic
         if (!customerExists || !jobExists) {
-          logger.info("Recreating customer/job via prospect creation since entities were deleted", {
+          logger.info("Entities missing - using safe update logic to avoid duplicates", {
             customerExists,
             jobExists,
-            leadId: leadData.leadId
+            leadId: leadData.leadId,
+            mode,
+            allowProspectCreateOnMissing
           });
           
-          // Clear the existing IDs since they're invalid
-          delete leadData.leapCustomerId;
-          delete leadData.leapJobId;
-          
-          // Recursively call syncLead to create new prospect
-          return await this.syncLead(leadData);
+          // Use safe update method that won't create duplicates
+          return await this.updateCustomerAndJobSafely(leadData, options);
         }
         
         // If we reach here, only customer exists and was updated successfully
@@ -1725,12 +2280,35 @@ export class LeapService {
         });
         }
 
+        // Normalize the response structure for consistent ID extraction
+        const prospectId = result.data?.id || result.data?.prospect?.id;
+        const customerId = result.data?.customer_id || result.data?.customer?.id;
+        const jobId = result.data?.job_id || 
+                     (result.data?.job_ids && result.data.job_ids[0]) || 
+                     result.data?.job?.id;
+        
+        const normalizedResult = {
+          success: true,
+          data: {
+            prospect_id: prospectId,
+            customer_id: customerId,
+            job_id: jobId,
+            job_ids: jobId ? [jobId] : [],
+            // Keep original data for backward compatibility
+            ...result.data
+          },
+          status: result.status,
+          message: "Lead synced to LEAP CRM successfully using Create Prospect API"
+        };
+        
         logger.info("Lead sync to LEAP CRM completed successfully using Create Prospect API", {
-          prospectId: result.data?.id,
-          result
+          prospectId,
+          customerId,
+          jobId,
+          originalResult: result
         });
 
-        return result;
+        return normalizedResult;
       }
     } catch (error: any) {
       logger.error("Failed to sync lead to LEAP CRM using Create Prospect API", error);
@@ -1757,8 +2335,8 @@ export const leapService = {
     return this.instance.testConnection();
   },
 
-  async syncLead(leadData: any) {
-    return this.instance.syncLead(leadData);
+  async syncLead(leadData: any, options?: SyncOptions) {
+    return this.instance.syncLead(leadData, options);
   },
 
   async createProspect(prospectData: any) {

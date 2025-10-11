@@ -633,20 +633,24 @@ router.post("/", async (req, res) => {
           leapJobId: newLead.leapJobId, // Pass existing LEAP job ID if available
         });
         
-        // Update lead with LEAP sync results from Create Prospect API
-        // The new API returns a single prospect with embedded customer and job data
-        const prospectId = syncResult.data?.id || syncResult.data?.prospect?.id;
-        newLead.leapProspectId = prospectId?.toString();
-        
-        // For backward compatibility, also extract customer and job IDs if available
-        const customerData = syncResult.data?.customer || syncResult.data;
-        if (customerData?.id) {
-          newLead.leapCustomerId = customerData.id.toString();
+        // Update lead with LEAP sync results using normalized fields
+        const prospectId = syncResult.data?.prospect_id || syncResult.data?.id;
+        if (prospectId) {
+          newLead.leapProspectId = prospectId.toString();
         }
         
-        const jobData = syncResult.data?.job || syncResult.data;
-        if (jobData?.id) {
-          newLead.leapJobId = jobData.id.toString();
+        // Use normalized customer_id field
+        const customerId = syncResult.data?.customer_id || syncResult.data?.customer?.id;
+        if (customerId) {
+          newLead.leapCustomerId = customerId.toString();
+        }
+        
+        // Use normalized job_id field with fallback to job_ids array
+        const jobId = syncResult.data?.job_id || 
+                     (syncResult.data?.job_ids && syncResult.data.job_ids[0]) || 
+                     syncResult.data?.job?.id;
+        if (jobId) {
+          newLead.leapJobId = jobId.toString();
         }
         
         // Check if appointment was created (embedded in the prospect response)
@@ -792,10 +796,13 @@ router.put("/:id", async (req, res) => {
           
         } else {
           // Use full sync for other changes
+          const strictUpdateMode = process.env.LEAP_STRICT_UPDATE_MODE !== "false";
+          
           logger.info("Auto-syncing updated lead to LEAP CRM", { 
             leadId,
             leapCustomerId: updatedLead.leapCustomerId,
-            leapJobId: updatedLead.leapJobId
+            leapJobId: updatedLead.leapJobId,
+            strictUpdateMode
           });
           
           const syncResult = await leapService.syncLead({
@@ -829,6 +836,9 @@ router.put("/:id", async (req, res) => {
           leadId: updatedLead._id?.toString() || leadId,
           leapCustomerId: updatedLead.leapCustomerId, // Pass existing LEAP customer ID for updates
           leapJobId: updatedLead.leapJobId, // Pass existing LEAP job ID for updates
+        }, {
+          mode: "update",
+          allowProspectCreateOnMissing: !strictUpdateMode
         });
         
         // Debug log the sync result structure
@@ -839,38 +849,26 @@ router.put("/:id", async (req, res) => {
           timestamp: new Date().toISOString()
         });
         
-        // Update lead with sync results (including any new IDs if entities were recreated)
-        const prospectId = syncResult.data?.id || syncResult.data?.prospect?.id;
+        // Update lead with sync results using normalized fields
+        const prospectId = syncResult.data?.prospect_id || syncResult.data?.id;
         if (prospectId) {
           updatedLead.leapProspectId = prospectId.toString();
         }
         
-        // Handle both update responses and prospect creation responses
-        const customerData = syncResult.data?.customer || syncResult.data;
-        if (customerData?.id) {
-          updatedLead.leapCustomerId = customerData.id.toString();
-          logger.info("Extracted customer ID from customer.id", { customerId: customerData.id });
-        }
-        // Also check for customer_id field (from prospect creation)
-        else if (syncResult.data?.customer_id) {
-          updatedLead.leapCustomerId = syncResult.data.customer_id.toString();
-          logger.info("Extracted customer ID from customer_id", { customerId: syncResult.data.customer_id });
+        // Use normalized customer_id field
+        const customerId = syncResult.data?.customer_id || syncResult.data?.customer?.id;
+        if (customerId) {
+          updatedLead.leapCustomerId = customerId.toString();
+          logger.info("Extracted customer ID from normalized response", { customerId });
         }
         
-        const jobData = syncResult.data?.job || syncResult.data;
-        if (jobData?.id) {
-          updatedLead.leapJobId = jobData.id.toString();
-          logger.info("Extracted job ID from job.id", { jobId: jobData.id });
-        }
-        // Also check for job_id field (from prospect creation)
-        else if (syncResult.data?.job_id) {
-          updatedLead.leapJobId = syncResult.data.job_id.toString();
-          logger.info("Extracted job ID from job_id", { jobId: syncResult.data.job_id });
-        }
-        // Also check for job_ids array (from prospect creation)
-        else if (syncResult.data?.job_ids && syncResult.data.job_ids.length > 0) {
-          updatedLead.leapJobId = syncResult.data.job_ids[0].toString();
-          logger.info("Extracted job ID from job_ids[0]", { jobId: syncResult.data.job_ids[0] });
+        // Use normalized job_id field with fallback to job_ids array
+        const jobId = syncResult.data?.job_id || 
+                     (syncResult.data?.job_ids && syncResult.data.job_ids[0]) || 
+                     syncResult.data?.job?.id;
+        if (jobId) {
+          updatedLead.leapJobId = jobId.toString();
+          logger.info("Extracted job ID from normalized response", { jobId });
         }
         
         updatedLead.syncStatus = "synced";
@@ -993,7 +991,12 @@ router.post("/:id/resync", async (req, res) => {
     }
     
     try {
-      logger.info("Resyncing lead to LEAP CRM", { leadId });
+      const strictUpdateMode = process.env.LEAP_STRICT_UPDATE_MODE !== "false";
+      
+      logger.info("Resyncing lead to LEAP CRM", { 
+        leadId,
+        strictUpdateMode 
+      });
       
       const syncResult = await leapService.syncLead({
         fullName: lead.fullName,
@@ -1026,20 +1029,29 @@ router.post("/:id/resync", async (req, res) => {
         leadId: lead._id?.toString() || leadId,
         leapCustomerId: lead.leapCustomerId, // Pass existing LEAP customer ID if available
         leapJobId: lead.leapJobId, // Pass existing LEAP job ID if available
+      }, {
+        mode: "update",
+        allowProspectCreateOnMissing: !strictUpdateMode
       });
       
-      // Update lead with sync results
-      const prospectId = syncResult.data?.id || syncResult.data?.prospect?.id;
-      lead.leapProspectId = prospectId?.toString();
-      
-      const customerData = syncResult.data?.customer || syncResult.data;
-      if (customerData?.id) {
-        lead.leapCustomerId = customerData.id.toString();
+      // Update lead with sync results using normalized fields
+      const prospectId = syncResult.data?.prospect_id || syncResult.data?.id;
+      if (prospectId) {
+        lead.leapProspectId = prospectId.toString();
       }
       
-      const jobData = syncResult.data?.job || syncResult.data;
-      if (jobData?.id) {
-        lead.leapJobId = jobData.id.toString();
+      // Use normalized customer_id field
+      const customerId = syncResult.data?.customer_id || syncResult.data?.customer?.id;
+      if (customerId) {
+        lead.leapCustomerId = customerId.toString();
+      }
+      
+      // Use normalized job_id field with fallback to job_ids array
+      const jobId = syncResult.data?.job_id || 
+                   (syncResult.data?.job_ids && syncResult.data.job_ids[0]) || 
+                   syncResult.data?.job?.id;
+      if (jobId) {
+        lead.leapJobId = jobId.toString();
       }
       
       lead.syncStatus = "synced";
@@ -1258,18 +1270,24 @@ router.post("/sync-pending", async (req, res) => {
           leapJobId: lead.leapJobId, // Pass existing LEAP job ID if available
         });
         
-        // Update lead with sync results
-        const prospectId = syncResult.data?.id || syncResult.data?.prospect?.id;
-        lead.leapProspectId = prospectId?.toString();
-        
-        const customerData = syncResult.data?.customer || syncResult.data;
-        if (customerData?.id) {
-          lead.leapCustomerId = customerData.id.toString();
+        // Update lead with sync results using normalized fields
+        const prospectId = syncResult.data?.prospect_id || syncResult.data?.id;
+        if (prospectId) {
+          lead.leapProspectId = prospectId.toString();
         }
         
-        const jobData = syncResult.data?.job || syncResult.data;
-        if (jobData?.id) {
-          lead.leapJobId = jobData.id.toString();
+        // Use normalized customer_id field
+        const customerId = syncResult.data?.customer_id || syncResult.data?.customer?.id;
+        if (customerId) {
+          lead.leapCustomerId = customerId.toString();
+        }
+        
+        // Use normalized job_id field with fallback to job_ids array
+        const jobId = syncResult.data?.job_id || 
+                     (syncResult.data?.job_ids && syncResult.data.job_ids[0]) || 
+                     syncResult.data?.job?.id;
+        if (jobId) {
+          lead.leapJobId = jobId.toString();
         }
         
         lead.syncStatus = "synced";
