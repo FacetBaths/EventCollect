@@ -312,8 +312,8 @@ export const apiService = {
     return response.data;
   },
 
-  async importLeadsFromPreview(leads: any[]): Promise<ApiResponse<any>> {
-    const response = await api.post('/leads/import-from-preview', { leads });
+  async importLeadsFromPreview(leads: any[], enableLeapSync?: boolean): Promise<ApiResponse<any>> {
+    const response = await api.post('/leads/import-from-preview', { leads, enableLeapSync });
     return response.data;
   },
 

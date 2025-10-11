@@ -123,21 +123,51 @@
               clearable
             />
           </div>
+          <div class="row q-gutter-md q-mt-sm">
+            <q-select
+              v-model="batchSettings.referralSourceId"
+              :options="referralSourceOptions"
+              label="Referral Source"
+              class="col"
+              filled
+              clearable
+              option-label="label"
+              option-value="value"
+              hint="Source attribution for LEAP CRM tracking"
+            />
+          </div>
+          <div class="row q-gutter-md q-mt-sm">
+            <q-checkbox
+              v-model="batchSettings.enableLeapSync"
+              label="Sync leads to LEAP CRM automatically"
+              color="primary"
+              class="col"
+            />
+            <q-checkbox
+              v-model="showAllLeads"
+              label="Show all leads in preview (instead of first 5)"
+              color="secondary"
+              class="col"
+            />
+          </div>
           <div class="text-caption text-grey-6 q-mt-sm">
             These settings will be applied to all imported leads. Individual leads can be edited after import.
           </div>
         </div>
         
         <!-- Preview Table -->
-        <div class="text-subtitle1 text-weight-medium q-mb-md">Preview (showing first 5 leads)</div>
+        <div class="text-subtitle1 text-weight-medium q-mb-md">
+          Preview {{ showAllLeads ? `(all ${previewData.leads?.length || 0} leads)` : '(showing first 5 leads)' }}
+        </div>
         <q-table
-          :rows="previewData.leads?.slice(0, 5) || []"
+          :rows="showAllLeads ? (previewData.leads || []) : (previewData.leads?.slice(0, 5) || [])"
           :columns="previewColumns"
           row-key="email"
           flat
           bordered
           dense
           class="preview-table"
+          :pagination="showAllLeads ? { rowsPerPage: 10 } : { rowsPerPage: 0 }"
         >
           <template v-slot:body-cell-phone="props">
             <q-td :props="props">
@@ -146,7 +176,7 @@
           </template>
         </q-table>
         
-        <div v-if="(previewData.leads?.length || 0) > 5" class="text-caption text-grey-6 q-mt-sm text-center">
+        <div v-if="!showAllLeads && (previewData.leads?.length || 0) > 5" class="text-caption text-grey-6 q-mt-sm text-center">
           ... and {{ (previewData.leads?.length || 0) - 5 }} more leads
         </div>
         
@@ -156,13 +186,28 @@
             <template v-slot:avatar>
               <q-icon name="info" />
             </template>
-            Ready to import {{ previewData.leads?.length || 0 }} leads from Facebook with the following settings:
+            Ready to import {{ previewData.leads?.length || 0 }} leads with the following settings:
             <ul class="q-mt-sm">
               <li><strong>Event:</strong> "Facebook Lead Ad"</li>
-              <li><strong>Referral Source:</strong> Facebook</li>
-              <li><strong>Sales Rep:</strong> {{ selectedSalesRep || 'Default (BDC)' }}</li>
-              <li><strong>Division:</strong> {{ selectedDivision || 'Renovation' }}</li>
-              <li><strong>LEAP Sync:</strong> Automatic</li>
+              <li><strong>Sales Rep:</strong> {{ selectedSalesRep || 'Default (BDC - ID: 88443)' }}</li>
+              <li><strong>Division:</strong> {{ selectedDivision || 'Renovation (ID: 6496)' }}</li>
+              <li><strong>Trade Types:</strong> {{ selectedTradeNames || 'Bath Remodel (ID: 105)' }}</li>
+              <li><strong>Referral Source:</strong> {{ selectedReferralSource || 'Facebook (ID: 62514)' }}</li>
+              <li><strong>LEAP Sync:</strong> {{ batchSettings.enableLeapSync ? 'Enabled' : 'Disabled' }}</li>
+            </ul>
+          </q-banner>
+          
+          <!-- LEAP Referral Details -->
+          <q-banner v-if="batchSettings.enableLeapSync" class="bg-orange-1 text-orange-8 q-mt-md" rounded>
+            <template v-slot:avatar>
+              <q-icon name="settings" />
+            </template>
+            <strong>LEAP CRM Referral Mapping:</strong>
+            <ul class="q-mt-sm">
+              <li><strong>Referral Source:</strong> {{ selectedReferralSource || 'Facebook' }} (ID: {{ batchSettings.referralSourceId || 62514 }})</li>
+              <li><strong>Referral Note:</strong> "{{ selectedReferralSource || 'Facebook' }} Lead Form" (source details)</li>
+              <li><strong>Company Name:</strong> "{{ selectedReferralSource || 'Facebook' }}" (for tracking)</li>
+              <li><strong>Job Description:</strong> Includes import date, source, and channel info</li>
             </ul>
           </q-banner>
         </div>
@@ -299,12 +344,17 @@ const importStatus = ref('');
 const importResults = ref<ImportResults | null>(null);
 const previewData = ref<PreviewData>({ leads: [], leapData: { salesReps: [], trades: [], divisions: [] }, filename: '' });
 
+// UI state
+const showAllLeads = ref(false);
+
 // Batch settings
 const batchSettings = ref({
   salesRepId: null as number | null,
   divisionId: 6496 as number | null, // Default to Renovation
   tradeIds: [105] as number[], // Default to Bath Remodel
   tempRating: null as number | null,
+  enableLeapSync: true, // Default to enabled
+  referralSourceId: 62514 as number | null, // Default to Facebook
 });
 
 // Computed options for dropdowns
@@ -329,6 +379,13 @@ const tradeOptions = computed(() =>
   }))
 );
 
+const referralSourceOptions = computed(() =>
+  previewData.value.leapData.referralSources.map((source: any) => ({
+    label: source.name,
+    value: source.id
+  }))
+);
+
 const selectedSalesRep = computed(() => {
   const rep = previewData.value.leapData.salesReps.find((r: any) => r.id === batchSettings.value.salesRepId);
   return rep ? `${rep.first_name} ${rep.last_name}` : null;
@@ -337,6 +394,19 @@ const selectedSalesRep = computed(() => {
 const selectedDivision = computed(() => {
   const div = previewData.value.leapData.divisions.find((d: any) => d.id === batchSettings.value.divisionId);
   return div?.name || null;
+});
+
+const selectedTradeNames = computed(() => {
+  if (!batchSettings.value.tradeIds?.length) return null;
+  const tradeNames = batchSettings.value.tradeIds
+    .map(id => previewData.value.leapData.trades.find((t: any) => t.id === id)?.name)
+    .filter(name => name);
+  return tradeNames.length ? tradeNames.join(', ') : null;
+});
+
+const selectedReferralSource = computed(() => {
+  const source = previewData.value.leapData.referralSources.find((s: any) => s.id === batchSettings.value.referralSourceId);
+  return source?.name || null;
 });
 
 // Table columns for preview
@@ -458,13 +528,21 @@ async function importLeads() {
   importResults.value = null;
   
   try {
+    // Helper function to extract numeric ID from object or return number directly
+    const extractId = (value: any): number | undefined => {
+      if (typeof value === 'number') return value;
+      if (typeof value === 'object' && value?.value) return value.value;
+      return undefined;
+    };
+    
     // Apply batch settings to all leads
     const leadsToImport = previewData.value.leads.map(lead => ({
       ...lead,
-      salesRepId: batchSettings.value.salesRepId || lead.salesRepId,
+      salesRepId: extractId(batchSettings.value.salesRepId) || extractId(lead.salesRepId) || 88443, // Default BDC Rep
       divisionId: batchSettings.value.divisionId || lead.divisionId,
       tradeIds: batchSettings.value.tradeIds || lead.tradeIds,
       tempRating: batchSettings.value.tempRating || lead.tempRating,
+      referralSourceId: extractId(batchSettings.value.referralSourceId) || extractId(lead.referralSourceId) || 62514, // Pass selected referral source
     }));
     
     // Progress simulation
@@ -475,23 +553,33 @@ async function importLeads() {
     }, 300);
     
     importStatus.value = 'Importing leads to database and syncing to LEAP...';
-    const response = await apiService.importLeadsFromPreview(leadsToImport);
+    const response = await apiService.importLeadsFromPreview(leadsToImport, batchSettings.value.enableLeapSync);
     
     clearInterval(progressInterval);
     importProgress.value = 1;
     importStatus.value = 'Import completed!';
     
-    if (response.success || (response.data && response.data.successful > 0)) {
-      const results = response.data as ImportResults;
+    // Handle both full success (200) and partial success (207) responses
+    const results = response.data as ImportResults;
+    if (response.success || (results && results.totalProcessed > 0)) {
       importResults.value = results;
       
       emit('importCompleted', results);
       
-      Notify.create({
-        type: results.failed > 0 ? 'warning' : 'positive',
-        message: `Import completed: ${results.successful} leads imported${results.failed > 0 ? `, ${results.failed} failed` : ''}`,
-        timeout: 5000,
-      });
+      if (results.successful > 0) {
+        Notify.create({
+          type: results.failed > 0 ? 'warning' : 'positive',
+          message: `Import completed: ${results.successful} leads imported${results.failed > 0 ? `, ${results.failed} failed` : ''}`,
+          timeout: 5000,
+        });
+      } else if (results.failed > 0) {
+        // All imports failed
+        Notify.create({
+          type: 'negative',
+          message: `Import failed: All ${results.failed} leads failed to import. Check the errors below.`,
+          timeout: 7000,
+        });
+      }
     } else {
       throw new Error(response.error || 'Import failed');
     }
@@ -532,6 +620,8 @@ function closeDialog() {
       divisionId: 6496,
       tradeIds: [105],
       tempRating: null,
+      enableLeapSync: true,
+      referralSourceId: 62514, // Reset to Facebook default
     };
     if (fileInput.value) {
       fileInput.value.value = '';

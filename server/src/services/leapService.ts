@@ -1096,7 +1096,7 @@ export class LeapService {
       if (job.address_line_1) formData.append('job[address_line_1]', job.address_line_1);
       if (job.lat) formData.append('job[lat]', job.lat);
       if (job.long) formData.append('job[long]', job.long);
-      if (job.alt_id) formData.append('job[alt_id]', job.alt_id.toString());
+      // if (job.alt_id) formData.append('job[alt_id]', job.alt_id.toString()); // Removed as it was causing issues
       if (job.estimator_ids) {
         job.estimator_ids.forEach(id => {
           formData.append('job[estimator_ids][]', id.toString());
@@ -1386,7 +1386,7 @@ export class LeapService {
           address_line_1: leadData.address.street,
           lat: "0", // You might want to geocode this
           long: "0", // You might want to geocode this
-          alt_id: leadData.leadId ? parseInt(leadData.leadId.slice(-8), 16) : Math.floor(Math.random() * 100000), // Convert leadId to number or use random
+          // alt_id: removed as it was causing issues in LEAP
           estimator_ids: leadData.salesRepId ? [leadData.salesRepId] : [],
           description: buildJobDescription(leadData),
           trades: (leadData.tradeIds && leadData.tradeIds.length > 0) ? leadData.tradeIds : [105], // Default to BATH REMODEL (105)
