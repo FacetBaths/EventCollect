@@ -1,6 +1,6 @@
 {
   "name": "eventcollect",
-  "version": "1.0.0",
+  "version": "1.5.7",
   "description": "Event lead collection app with LEAP CRM integration",
   "private": true,
   "workspaces": [
