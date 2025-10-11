@@ -1,11 +1,12 @@
 {
-  "version": "1.2.0",
-  "buildDate": "2025-01-06",
+  "version": "1.5.7",
+  "buildDate": "2025-10-11",
   "features": [
-    "Fixed LEAP duplicate creation on edit",
-    "Added appointment editing in lead modal", 
-    "Added pre-submit copy backup functionality",
-    "Verified appointments saving to MongoDB",
-    "Removed email unique constraint"
+    "🛡️ Lead Duplication Prevention - Prevents duplicate Customer and Job records in LEAP",
+    "🔄 Enhanced Data Preservation - Maintains referral info and rep assignments during updates",
+    "🏢 Job Division Field Fix - Properly sets division (e.g., Supplier, Renovation) for all job operations",
+    "⚙️ Feature Flag Support - LEAP_STRICT_UPDATE_MODE for safe rollbacks",
+    "📝 Enhanced Logging - Better visibility into preserved fields and operations",
+    "🚀 Improved LEAP CRM Integration - Comprehensive safe update logic"
   ]
 }
