@@ -1,6 +1,6 @@
 {
   "name": "@eventcollect/server",
-  "version": "1.5.7",
+  "version": "2.0.2",
   "description": "EventCollect API Server with LEAP CRM integration",
   "main": "dist/index.js",
   "scripts": {
