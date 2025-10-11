@@ -880,7 +880,13 @@ export class LeapService {
         leapCustomerId: leadData.leapCustomerId,
         leapJobId: leadData.leapJobId,
         mode,
-        allowProspectCreateOnMissing
+        allowProspectCreateOnMissing,
+        referralInfo: {
+          referredBy: leadData.referredBy,
+          referred_by_type: leadData.referred_by_type,
+          referred_by_id: leadData.referred_by_id,
+          referred_by_note: leadData.referred_by_note
+        }
       });
 
       let resolvedCustomerId: string | number | null = null;
@@ -922,12 +928,23 @@ export class LeapService {
       // If still no customer and we're in strict update mode, create customer only
       if (!resolvedCustomerId) {
         if (!allowProspectCreateOnMissing) {
-          logger.info("Creating customer only (strict update mode)", { leadId: leadData.leadId });
+          logger.info("Creating customer only (strict update mode)", { 
+            leadId: leadData.leadId,
+            referralInfo: {
+              referredBy: leadData.referredBy,
+              referred_by_type: leadData.referred_by_type,
+              referred_by_id: leadData.referred_by_id,
+              referred_by_note: leadData.referred_by_note
+            }
+          });
+          
+          logger.warn("Note: Referral information may not be preserved when creating individual customers. Referral data is typically prospect-level.");
           
           const customerData = {
             first_name: firstName,
             last_name: lastName,
             email: leadData.email,
+            rep_id: leadData.salesRepId || leadData.callCenterRepId || 88443, // Default to BDC Rep
             phones: [
               {
                 number: leadData.phone.replace(/\D/g, '').slice(-10),
@@ -1015,6 +1032,14 @@ export class LeapService {
         const buildJobDescription = (data: any): string => {
           let description = data.notes || `Lead from ${data.eventName}`;
           
+          // Add referral information to description if available
+          if (data.referred_by_note && data.referred_by_note !== data.eventName) {
+            description += `\n\nReferral Source: ${data.referred_by_note}`;
+          }
+          if (data.referredBy && data.referredBy !== data.eventName && data.referredBy !== data.referred_by_note) {
+            description += `\n\nReferred By: ${data.referredBy}`;
+          }
+          
           // Append appointment details if provided
           if (data.appointmentDetails && (data.appointmentDetails.preferredDate || data.appointmentDetails.preferredTime || data.appointmentDetails.notes)) {
             description += "\n\n--- APPOINTMENT REQUEST ---";
@@ -1064,7 +1089,7 @@ export class LeapService {
             zip: leadData.address.zipCode,
             country: "United States"
           },
-          referral_source: leadData.referredBy || leadData.eventName,
+          referral_source: leadData.referred_by_note || leadData.referredBy || leadData.eventName,
           work_types: (leadData.workTypeIds && leadData.workTypeIds.length > 0) ? leadData.workTypeIds : [91139], // Default to Full Remodel
           other_trade_type_description: leadData.servicesOfInterest?.join(", ") || "",
           appointment_required: leadData.appointmentDetails ? 1 : 0,
@@ -1083,6 +1108,7 @@ export class LeapService {
           first_name: firstName,
           last_name: lastName,
           email: leadData.email,
+          rep_id: leadData.salesRepId || leadData.callCenterRepId, // Preserve customer rep assignment
           phones: [
             {
               number: leadData.phone.replace(/\D/g, '').slice(-10),
@@ -1104,7 +1130,14 @@ export class LeapService {
         };
         
         await this.updateCustomer(resolvedCustomerId, customerUpdateData);
-        logger.info("Customer updated successfully", { customerId: resolvedCustomerId });
+        logger.info("Customer updated successfully", { 
+          customerId: resolvedCustomerId,
+          repId: customerUpdateData.rep_id,
+          preservedFields: {
+            rep_id: customerUpdateData.rep_id,
+            email: customerUpdateData.email
+          }
+        });
       }
 
       if (resolvedJobId && resolvedCustomerId) {
@@ -1152,6 +1185,7 @@ export class LeapService {
           description: buildJobDescription(leadData),
           customer_id: resolvedCustomerId,
           trades: (leadData.tradeIds && leadData.tradeIds.length > 0) ? leadData.tradeIds : [105],
+          estimator_ids: leadData.salesRepId ? [leadData.salesRepId] : [], // Preserve job-level rep assignment
           same_as_customer_address: 1,
           address: {
             address_line_1: leadData.address.street,
@@ -1160,7 +1194,7 @@ export class LeapService {
             zip: leadData.address.zipCode,
             country: "United States"
           },
-          referral_source: leadData.referredBy || leadData.eventName,
+          referral_source: leadData.referred_by_note || leadData.referredBy || leadData.eventName,
           work_types: (leadData.workTypeIds && leadData.workTypeIds.length > 0) ? leadData.workTypeIds : [91139],
           other_trade_type_description: leadData.servicesOfInterest?.join(", ") || "",
           appointment_required: leadData.appointmentDetails ? 1 : 0
@@ -1168,7 +1202,15 @@ export class LeapService {
         };
         
         await this.updateJob(resolvedJobId, jobUpdateData);
-        logger.info("Job updated successfully", { jobId: resolvedJobId });
+        logger.info("Job updated successfully", { 
+          jobId: resolvedJobId,
+          preservedFields: {
+            referral_source: jobUpdateData.referral_source,
+            estimator_ids: jobUpdateData.estimator_ids,
+            trades: jobUpdateData.trades,
+            work_types: jobUpdateData.work_types
+          }
+        });
       }
 
       // Return normalized response
