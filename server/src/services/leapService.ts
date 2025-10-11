@@ -1079,8 +1079,10 @@ export class LeapService {
         const jobData = {
           name: `${lastName} - ${leadData.eventName || 'Lead'}`,
           customer_id: resolvedCustomerId,
+          division_id: leadData.divisionId || 6496, // Default to Renovation division
           description: buildJobDescription(leadData),
           trades: (leadData.tradeIds && leadData.tradeIds.length > 0) ? leadData.tradeIds : [105], // Default to BATH REMODEL
+          estimator_ids: leadData.salesRepId ? [leadData.salesRepId] : [],
           same_as_customer_address: 1,
           address: {
             address_line_1: leadData.address.street,
@@ -1184,6 +1186,7 @@ export class LeapService {
         const jobUpdateData = {
           description: buildJobDescription(leadData),
           customer_id: resolvedCustomerId,
+          division_id: leadData.divisionId || 6496, // Default to Renovation division
           trades: (leadData.tradeIds && leadData.tradeIds.length > 0) ? leadData.tradeIds : [105],
           estimator_ids: leadData.salesRepId ? [leadData.salesRepId] : [], // Preserve job-level rep assignment
           same_as_customer_address: 1,
@@ -1323,6 +1326,7 @@ export class LeapService {
       const jobUpdateData = {
         description: buildJobDescription(leadData),
         customer_id: leadData.leapCustomerId, // Required field
+        division_id: (leadData as any).divisionId || 6496, // Default to Renovation division
         trades: (leadData.tradeIds && leadData.tradeIds.length > 0) ? leadData.tradeIds : [105], // Required field - default to BATH REMODEL
         same_as_customer_address: 1, // Required field
         address: {
