@@ -289,26 +289,54 @@ export class LeapService {
 
   /**
    * Create a new appointment in LEAP CRM
-   * NOTE: LEAP API does not support creating appointments - they must be created manually in LEAP
-   * This method returns appointment request information for manual processing
+   * NOTE: Requires job_id to associate appointment with a job
    */
   async createAppointment(
-    appointmentData: Partial<LeapAppointment>,
+    appointmentData: Partial<LeapAppointment> & { job_id?: string | number },
   ): Promise<LeapApiResponse<any>> {
-    logger.info("Appointment creation requested - LEAP API does not support creating appointments", { appointmentData });
-    
-    // Since LEAP doesn't support creating appointments via API,
-    // we return the appointment request data for manual processing
-    return {
-      success: true,
-      data: {
-        message: "LEAP API does not support creating appointments. Appointment request logged for manual processing.",
-        appointmentRequest: appointmentData,
-        note: "This appointment must be manually created in the LEAP CRM system by staff."
-      },
-      status: 200,
-      message: "Appointment request received - requires manual creation in LEAP CRM",
-    };
+    try {
+      logger.info("Creating appointment in LEAP CRM", { appointmentData });
+      
+      // Validate required fields for LEAP appointment
+      if (!appointmentData.job_id) {
+        throw new Error("job_id is required for LEAP appointment creation");
+      }
+      if (!appointmentData.date) {
+        throw new Error("date is required for LEAP appointment creation");
+      }
+      if (!appointmentData.start_time) {
+        throw new Error("start_time is required for LEAP appointment creation");
+      }
+      
+      const response: AxiosResponse = await this.apiClient.post(
+        "/appointments",
+        appointmentData,
+      );
+      
+      logger.info("Appointment created successfully in LEAP CRM", {
+        appointmentId: response.data.data?.id,
+        jobId: appointmentData.job_id
+      });
+      
+      return {
+        success: true,
+        data: response.data.data || response.data,
+        status: response.status,
+        message: "Appointment created successfully in LEAP CRM",
+      };
+    } catch (error: any) {
+      logger.error("Failed to create appointment in LEAP CRM", {
+        error: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        responseData: error.response?.data,
+        requestData: appointmentData,
+        timestamp: new Date().toISOString()
+      });
+      throw new Error(
+        `LEAP CRM Error: ${error.response?.data?.message || error.message}`,
+      );
+    }
   }
 
   /**
