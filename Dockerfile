@@ -7,11 +7,14 @@ WORKDIR /app
 COPY server/package*.json ./
 COPY server/ ./
 
-# Install dependencies with npm (not yarn)
-RUN npm install --only=production
+# Install all dependencies (including dev deps for build)
+RUN npm install
 
 # Build the application
 RUN npm run build
+
+# Remove dev dependencies for production
+RUN npm prune --omit=dev
 
 # Expose port
 EXPOSE 3001
