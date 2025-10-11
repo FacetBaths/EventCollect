@@ -30,8 +30,8 @@ jobs:
 
     - name: Install dependencies
       run: |
-        yarn install --frozen-lockfile
-        cd client && yarn install --frozen-lockfile
+        yarn install
+        cd client && yarn install
 
     - name: Build frontend
       run: |
