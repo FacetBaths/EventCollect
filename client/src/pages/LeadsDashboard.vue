@@ -205,6 +205,21 @@
             >
               <q-card>
                 <q-card-section>
+                  <q-select
+                    filled
+                    v-model="selectedLead.eventName"
+                    :options="eventOptions"
+                    label="Event (from server)"
+                    clearable
+                    class="q-mb-sm"
+                  />
+                  <q-input
+                    filled
+                    v-model="selectedLead.eventName"
+                    label="Custom Event Name"
+                    hint="This is the event shown on the dashboard. Use the dropdown above or type your own value here."
+                    class="q-mb-md"
+                  />
                   <q-input
                     filled
                     v-model="selectedLead.fullName"
@@ -424,35 +439,54 @@
             <!-- Referral Information -->
             <q-expansion-item
               icon="how_to_reg"
-              label="Referral Information"
+              label="Event & Referral Information"
               class="q-mb-md"
             >
               <q-card>
                 <q-card-section>
+                  <q-select
+                    filled
+                    v-model="selectedLead.eventName"
+                    :options="eventOptions"
+                    label="Event (from server)"
+                    clearable
+                    class="q-mb-sm"
+                  />
                   <q-input
                     filled
-                    v-model="selectedLead.referredBy"
+                    v-model="selectedLead.eventName"
+                    label="Custom Event Name"
+                    hint="This is the event shown on the dashboard. Use the dropdown above or type your own value here."
+                    class="q-mb-md"
+                  />
+                  <q-input
+                    filled
+                    :model-value="selectedLead.referredBy || selectedLead.eventName || ''"
                     label="Referred By"
+                    readonly
                     class="q-mb-sm"
                   />
                   <div class="row q-gutter-sm q-mb-sm">
                     <q-input
                       filled
-                      v-model="selectedLead.referred_by_type"
+                      :model-value="selectedLead.referred_by_type || 'Event'"
                       label="Referral Type"
+                      readonly
                       class="col"
                     />
                     <q-input
                       filled
-                      v-model.number="selectedLead.referred_by_id"
+                      :model-value="selectedLead.referred_by_id ?? 8"
                       label="Referral ID"
+                      readonly
                       class="col-4"
                     />
                   </div>
                   <q-input
                     filled
-                    v-model="selectedLead.referred_by_note"
+                    :model-value="selectedLead.referred_by_note || selectedLead.eventName || ''"
                     label="Referral Note"
+                    readonly
                     class="q-mb-sm"
                   />
                 </q-card-section>
@@ -643,32 +677,66 @@
                 />
               </div>
               
-              <!-- Referral Information -->
-              <div class="text-subtitle1 text-weight-medium q-mb-md q-mt-lg">Referral Information</div>
+              <!-- Event & Referral Information -->
+              <div class="text-subtitle1 text-weight-medium q-mb-md q-mt-lg">Event & Referral Information</div>
+              <q-select
+                filled
+                v-model="selectedLead.eventName"
+                :options="eventOptions"
+                label="Event (from server)"
+                clearable
+                class="q-mb-sm"
+              />
               <q-input
                 filled
-                v-model="selectedLead.referredBy"
+                v-model="selectedLead.eventName"
+                label="Custom Event Name"
+                hint="This is the event shown on the dashboard. Use the dropdown above or type your own value here."
+                class="q-mb-md"
+              />
+              <q-select
+                filled
+                v-model="selectedLead.eventName"
+                :options="eventOptions"
+                label="Event (from server)"
+                clearable
+                class="q-mb-sm"
+              />
+              <q-input
+                filled
+                v-model="selectedLead.eventName"
+                label="Custom Event Name"
+                hint="This is the event shown on the dashboard. Use the dropdown above or type your own value here."
+                class="q-mb-md"
+              />
+              <q-input
+                filled
+                :model-value="selectedLead.referredBy || selectedLead.eventName || ''"
                 label="Referred By"
+                readonly
                 class="q-mb-sm"
               />
               <div class="row q-gutter-sm q-mb-sm">
                 <q-input
                   filled
-                  v-model="selectedLead.referred_by_type"
+                  :model-value="selectedLead.referred_by_type || 'Event'"
                   label="Referral Type"
+                  readonly
                   class="col"
                 />
                 <q-input
                   filled
-                  v-model.number="selectedLead.referred_by_id"
+                  :model-value="selectedLead.referred_by_id ?? 8"
                   label="Referral ID"
+                  readonly
                   class="col-4"
                 />
               </div>
               <q-input
                 filled
-                v-model="selectedLead.referred_by_note"
+                :model-value="selectedLead.referred_by_note || selectedLead.eventName || ''"
                 label="Referral Note"
+                readonly
                 class="q-mb-md"
               />
               
@@ -790,6 +858,7 @@ const appointmentDialog = ref(false);
 const showCsvImport = ref(false);
 const selectedLead = ref<Lead | null>(null);
 const eventStore = useEventStore();
+const eventOptions = ref<string[]>([]);
 
 // Copy functionality
 const { copyLeadToClipboard } = useCopyLead();
@@ -895,8 +964,35 @@ const paginatedLeads = computed(() => {
 });
 
 onMounted(async () => {
-  await fetchLeads();
+  await Promise.all([fetchLeads(), fetchEventOptions()]);
 });
+
+function cloneLead<T>(lead: T): T {
+  if (typeof structuredClone === 'function') {
+    return structuredClone(lead);
+  }
+
+  return JSON.parse(JSON.stringify(lead)) as T;
+}
+
+function normalizeText(value?: string | null): string {
+  return value?.trim() || '';
+}
+
+async function fetchEventOptions() {
+  try {
+    const response = await apiService.getEvents();
+    if (response.success && response.data) {
+      eventOptions.value = [...new Set(
+        response.data
+          .map((event: { name?: string }) => event.name?.trim())
+          .filter((name): name is string => !!name)
+      )];
+    }
+  } catch (error) {
+    console.error('Error fetching event options:', error);
+  }
+}
 
 
 async function fetchLeads() {
@@ -946,7 +1042,7 @@ function getTempColor(rating: number): string {
 }
 
 function editLead(lead: Lead) {
-  selectedLead.value = { ...lead }; // Create a copy to avoid mutating original
+  selectedLead.value = cloneLead(lead);
   
   // Initialize fields if not set
   if (!selectedLead.value.tempRating) {
@@ -972,6 +1068,13 @@ function editLead(lead: Lead) {
   if (!selectedLead.value.workTypeIds) {
     selectedLead.value.workTypeIds = [];
   }
+  if (!selectedLead.value.eventName) {
+    selectedLead.value.eventName = '';
+  }
+  selectedLead.value.referredBy = selectedLead.value.eventName;
+  selectedLead.value.referred_by_type = 'Event';
+  selectedLead.value.referred_by_id = 8;
+  selectedLead.value.referred_by_note = selectedLead.value.eventName;
   
   // Initialize appointment details if needed
   if (!selectedLead.value.appointmentDetails) {
@@ -996,7 +1099,15 @@ async function saveLeadChanges() {
   savingLead.value = true;
   
   try {
-    const response = await apiService.updateLead(selectedLead.value._id, selectedLead.value);
+    const leadToSave = cloneLead(selectedLead.value);
+
+    leadToSave.eventName = normalizeText(leadToSave.eventName);
+    leadToSave.referredBy = leadToSave.eventName;
+    leadToSave.referred_by_type = 'Event';
+    leadToSave.referred_by_id = 8;
+    leadToSave.referred_by_note = leadToSave.eventName;
+
+    const response = await apiService.updateLead(leadToSave._id, leadToSave);
     
     if (response.success) {
       let message = 'Lead updated successfully!';

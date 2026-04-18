@@ -538,6 +538,14 @@ router.post("/", async (req, res) => {
       leadData.divisionId = 6496; // Renovation division ID
     }
 
+    if (typeof leadData.eventName === "string") {
+      leadData.eventName = leadData.eventName.trim();
+    }
+    leadData.referredBy = leadData.eventName || "";
+    leadData.referred_by_type = "Event";
+    leadData.referred_by_id = 8;
+    leadData.referred_by_note = leadData.eventName || "";
+
     const newLead = new Lead(leadData);
     const savedLead = await newLead.save();
     
@@ -781,6 +789,17 @@ router.put("/:id", async (req, res) => {
         error: "Lead not found",
       });
     }
+
+    const normalizedEventName =
+      typeof updateData.eventName === "string"
+        ? updateData.eventName.trim()
+        : originalLead.eventName || "";
+
+    updateData.eventName = normalizedEventName;
+    updateData.referredBy = normalizedEventName;
+    updateData.referred_by_type = "Event";
+    updateData.referred_by_id = 8;
+    updateData.referred_by_note = normalizedEventName;
     
     const updatedLead = await Lead.findByIdAndUpdate(leadId, updateData, { new: true });
     
