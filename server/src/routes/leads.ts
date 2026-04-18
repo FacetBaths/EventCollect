@@ -29,7 +29,7 @@ const upload = multer({
 });
 
 // POST /api/leads/preview-csv - Preview Facebook leads from CSV before import
-router.post("/preview-csv", upload.single('csvFile'), async (req, res) => {
+router.post("/preview-csv", upload.single('csvFile') as any, async (req, res) => {
   let tempFilePath: string | undefined;
   
   try {
@@ -307,7 +307,7 @@ router.post("/import-from-preview", async (req, res) => {
 });
 
 // POST /api/leads/import-csv - Import Facebook leads from CSV
-router.post("/import-csv", upload.single('csvFile'), async (req, res) => {
+router.post("/import-csv", upload.single('csvFile') as any, async (req, res) => {
   let tempFilePath: string | undefined;
   
   try {
