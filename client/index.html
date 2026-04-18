@@ -10,6 +10,13 @@
     />
     <meta name="format-detection" content="telephone=no" />
     <meta name="msapplication-tap-highlight" content="no" />
+    <!-- Defense in depth: discourage caching of index.html so hashed asset
+         references stay current. Most modern browsers ignore these on HTTPS,
+         but they help some intermediaries and older WebKit builds. The real
+         cache-bust enforcement lives in src/boot/version-check.ts. -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <meta
       name="viewport"
       content="user-scalable=yes, initial-scale=1, maximum-scale=2, minimum-scale=1, width=device-width<% if (ctx.mode.cordova || ctx.mode.capacitor) { %>, viewport-fit=cover<% } %>"

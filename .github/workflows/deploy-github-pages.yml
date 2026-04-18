@@ -33,6 +33,17 @@ jobs:
         yarn install
         cd client && yarn install
 
+    - name: Stamp build version
+      run: |
+        SHORT_SHA="${GITHUB_SHA:0:7}"
+        BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        export SHORT_SHA BUILD_DATE
+        # Bundled copy (imported by boot files / MainLayout)
+        node -e "const fs=require('fs');const p='client/src/version.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.commit=process.env.SHORT_SHA;j.buildDate=process.env.BUILD_DATE;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');"
+        # Public copy (fetched at runtime for cache-bust check)
+        node -e "const fs=require('fs');const p='client/public/version.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.commit=process.env.SHORT_SHA;j.buildDate=process.env.BUILD_DATE;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');"
+        echo "Stamped commit=$SHORT_SHA buildDate=$BUILD_DATE"
+
     - name: Build frontend
       run: |
         cd client && yarn build
