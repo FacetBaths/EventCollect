@@ -20,34 +20,34 @@
         </div>
         <div class="col-auto">
           <q-btn flat round icon="more_vert" size="sm">
-            <q-menu>
+            <q-menu v-model="actionMenuOpen">
               <q-list style="min-width: 150px">
-                <q-item clickable v-close-popup @click="$emit('edit', lead)">
+                <q-item clickable @click="openEdit">
                   <q-item-section avatar>
                     <q-icon name="edit" />
                   </q-item-section>
                   <q-item-section>Edit</q-item-section>
                 </q-item>
-                <q-item v-if="!isAppointmentSet" clickable v-close-popup @click="$emit('set-appointment', lead)">
+                <q-item v-if="!isAppointmentSet" clickable @click="openSetAppointment">
                   <q-item-section avatar>
                     <q-icon name="event" />
                   </q-item-section>
                   <q-item-section>Set Appointment</q-item-section>
                 </q-item>
-                <q-item v-if="lead.syncStatus === 'error'" clickable v-close-popup @click="$emit('resync', lead._id)">
+                <q-item v-if="lead.syncStatus === 'error'" clickable @click="triggerResync">
                   <q-item-section avatar>
                     <q-icon name="sync" />
                   </q-item-section>
                   <q-item-section>Resync</q-item-section>
                 </q-item>
-                <q-item clickable v-close-popup @click="copyLead">
+                <q-item clickable @click="copyLead">
                   <q-item-section avatar>
                     <q-icon name="content_copy" :loading="copyLoading" />
                   </q-item-section>
                   <q-item-section>Copy Lead Info</q-item-section>
                 </q-item>
                 <q-separator />
-                <q-item clickable v-close-popup @click="$emit('delete', lead._id)">
+                <q-item clickable @click="triggerDelete">
                   <q-item-section avatar>
                     <q-icon name="delete" color="negative" />
                   </q-item-section>
@@ -108,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, computed, ref } from 'vue';
+import { defineProps, computed, ref, nextTick } from 'vue';
 import { useCopyLead } from '../composables/useCopyLead';
 
 const props = defineProps({
@@ -117,10 +117,12 @@ const props = defineProps({
     required: true,
   },
 });
+const emit = defineEmits(['edit', 'set-appointment', 'resync', 'delete']);
 
 // Copy functionality
 const { copyLeadToClipboard } = useCopyLead();
 const copyLoading = ref(false);
+const actionMenuOpen = ref(false);
 
 // Computed property to check if appointment preference has been set
 const isAppointmentSet = computed(() => {
@@ -198,9 +200,32 @@ function formatDate(dateString: string): string {
     year: 'numeric'
   });
 }
+function closeMenuThen(action: () => void) {
+  actionMenuOpen.value = false;
+  void nextTick(() => {
+    window.setTimeout(action, 0);
+  });
+}
+
+function openEdit() {
+  closeMenuThen(() => emit('edit', props.lead));
+}
+
+function openSetAppointment() {
+  closeMenuThen(() => emit('set-appointment', props.lead));
+}
+
+function triggerResync() {
+  closeMenuThen(() => emit('resync', props.lead._id));
+}
+
+function triggerDelete() {
+  closeMenuThen(() => emit('delete', props.lead._id));
+}
 
 // Copy lead functionality
 async function copyLead() {
+  actionMenuOpen.value = false;
   copyLoading.value = true;
   try {
     await copyLeadToClipboard(props.lead);
