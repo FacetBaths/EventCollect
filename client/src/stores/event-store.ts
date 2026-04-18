@@ -69,7 +69,7 @@ export const useEventStore = defineStore('event', () => {
       setLoading(true);
       clearError();
       
-      const response: { success: boolean; data: Event | null } = await apiService.getActiveEvent();
+      const response = await apiService.getActiveEvent() as { success: boolean; data: Event | null };
       
       if (response.success && response.data) {
         setCurrentEvent(response.data);
@@ -94,7 +94,7 @@ async function loadEvents() {
     setLoading(true);
     clearError();
     
-    const response: { success: boolean; data: Event[] } = await apiService.getEvents();
+    const response = await apiService.getEvents() as { success: boolean; data: Event[] };
     
     if (response.success && response.data) {
       setEvents(response.data);
@@ -116,7 +116,24 @@ async function loadEvents() {
   }
 }
 
-let pollInterval: NodeJS.Timeout | null = null;\n\nasync function startPolling() {\n  if (pollInterval) return;\n\n  await loadActiveEvent();\n\n  pollInterval = setInterval(async () => {\n    await loadActiveEvent();\n  }, 20000);\n}\n\nfunction stopPolling() {\n  if (pollInterval) {\n    clearInterval(pollInterval);\n    pollInterval = null;\n  }\n}
+let pollInterval: NodeJS.Timeout | null = null;
+
+async function startPolling() {
+  if (pollInterval) return;
+
+  await loadActiveEvent();
+
+  pollInterval = setInterval(async () => {
+    await loadActiveEvent();
+  }, 20000);
+}
+
+function stopPolling() {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+}
 
 return {
     // State
