@@ -205,7 +205,7 @@ async function fetchStaffAvailability() {
         // Process MongoDB appointments - map to expected format
         calendarEvents.value = data.map((appointment: any, index: number) => ({
           id: appointment._id || appointment.id || index,
-          date: appointment.date ? (() => { const d = new Date(appointment.date); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })() : '',
+          date: appointment.date ? String(appointment.date).split('T')[0] : '',
           time: appointment.timeSlot || '',  // MongoDB uses timeSlot field
           timeSlot: appointment.timeSlot || '',
           endTime: '', // Not used in our simple 3-slot system
