@@ -27,9 +27,11 @@
             <q-item-label>{{ event.name }}</q-item-label>
             <q-item-label caption v-if="event.description">{{ event.description }}</q-item-label>
           </q-item-section>
-          <q-item-section side>
+          <q-item-section side class="row items-center">
             <q-badge v-if="event.isActive" color="positive" label="Active" />
             <q-badge v-else color="grey" label="Inactive" />
+            <q-btn v-if="event.isActive" flat dense label="Deactivate" color="negative" @click="toggleActive(event, false)" class="q-ml-sm" />
+            <q-btn v-else flat dense label="Activate" color="positive" @click="toggleActive(event, true)" class="q-ml-sm" />
           </q-item-section>
         </q-item>
       </q-list>
@@ -104,6 +106,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { Notify } from "quasar";
+import { useQuasar } from "quasar";
 import { apiService } from "../services/api";
 import { useEventStore } from "../stores/event-store";
 
@@ -121,6 +124,7 @@ const events = ref<Event[]>([]);
 const selectedEvent = ref<Event | null>(null);
 const loading = ref(true);
 const eventStore = useEventStore();
+const $q = useQuasar();
 
 // Create event dialog state
 const showCreateDialog = ref(false);
@@ -222,6 +226,44 @@ const createEvent = async () => {
   } finally {
     creating.value = false;
   }
+};
+
+const toggleActive = async (event: Event, activate: boolean) =&gt; {
+  const action = activate ? 'activate' : 'deactivate';
+  $q.dialog({
+    title: 'Confirm',
+    message: `Are you sure you want to ${action} "${event.name}"?`,
+    cancel: true,
+    persistent: true
+  }).onOk(async () =&gt; {
+    try {
+      let response;
+      if (activate) {
+        response = await apiService.activateEvent(event.id);
+      } else {
+        response = await apiService.updateEvent(event.id, { isActive: false });
+      }
+      if (response.success) {
+        Notify.create({
+          type: 'positive',
+          message: `Event ${action}d successfully`
+        });
+        await fetchEvents();
+        if (!activate &amp;&amp; selectedEvent.value?.id === event.id) {
+          selectedEvent.value = null;
+          eventStore.setCurrentEvent(null);
+        }
+      } else {
+        throw new Error(response.error || `Failed to ${action} event`);
+      }
+    } catch (error: any) {
+      console.error(`Error ${action}ing event:`, error);
+      Notify.create({
+        type: 'negative',
+        message: error.message || `Failed to ${action} event`
+      });
+    }
+  });
 };
 
 onMounted(fetchEvents);
