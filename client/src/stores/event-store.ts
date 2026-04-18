@@ -69,7 +69,7 @@ export const useEventStore = defineStore('event', () => {
       setLoading(true);
       clearError();
       
-      const response = await apiService.getActiveEvent();
+      const response: { success: boolean; data: Event | null } = await apiService.getActiveEvent();
       
       if (response.success && response.data) {
         setCurrentEvent(response.data);
@@ -88,48 +88,48 @@ export const useEventStore = defineStore('event', () => {
     }
   }
 
-  // Load all events from server
-  async function loadEvents() {
-    try {
-      setLoading(true);
-      clearError();
+// Load all events from server
+async function loadEvents() {
+  try {
+    setLoading(true);
+    clearError();
+    
+    const response: { success: boolean; data: Event[] } = await apiService.getEvents();
+    
+    if (response.success && response.data) {
+      setEvents(response.data);
       
-      const response = await apiService.getEvents();
-      
-      if (response.success && response.data) {
-        setEvents(response.data);
-        
-        // Also set the current active event if not already set
-        if (!currentEvent.value) {
-          const activeEvent = response.data.find((event: Event) => event.isActive);
-          if (activeEvent) {
-            setCurrentEvent(activeEvent);
-          }
+      // Also set the current active event if not already set
+      if (!currentEvent.value) {
+        const activeEvent = response.data.find((event: Event) => event.isActive);
+        if (activeEvent) {
+          setCurrentEvent(activeEvent);
         }
       }
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to load events';
-      setError(errorMessage);
-      console.error('Error loading events:', errorMessage);
-    } finally {
-      setLoading(false);
     }
+  } catch (err: any) {
+    const errorMessage = err.response?.data?.message || err.message || 'Failed to load events';
+    setError(errorMessage);
+    console.error('Error loading events:', errorMessage);
+  } finally {
+    setLoading(false);
   }
+}
 
-  return {
+let pollInterval: NodeJS.Timeout | null = null;\n\nasync function startPolling() {\n  if (pollInterval) return;\n\n  await loadActiveEvent();\n\n  pollInterval = setInterval(async () => {\n    await loadActiveEvent();\n  }, 20000);\n}\n\nfunction stopPolling() {\n  if (pollInterval) {\n    clearInterval(pollInterval);\n    pollInterval = null;\n  }\n}
+
+return {
     // State
     currentEvent,
     events,
     loading,
     error,
-
     // Getters
     getCurrentEvent,
     getEvents,
     getActiveEvents,
     isLoading,
     getError,
-
     // Actions
     setCurrentEvent,
     setEvents,
@@ -141,5 +141,7 @@ export const useEventStore = defineStore('event', () => {
     clearError,
     loadActiveEvent,
     loadEvents,
+    startPolling: startPolling,
+    stopPolling: stopPolling,
   };
 });

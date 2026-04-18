@@ -338,12 +338,7 @@ async function submitForm() {
     return;
   }
 
-  loading.value = true;
-
-  try {
-    // Include trade IDs, work type IDs, and sales rep ID in the form data
-    // Call center rep is automatically set to BDC Rep (88443) on the backend
-    const formDataWithTrades = {
+  loading.value = true;\n\n  try {\n    await eventStore.loadActiveEvent();\n\n    if (!eventStore.getCurrentEvent) {\n      Notify.create({\n        type: 'warning',\n        message: 'No active event found. Using default event name.',\n        timeout: 3000,\n      });\n    }\n\n    form.value.eventName = getEventName();\n    form.value.referredBy = getEventName();\n    form.value.referred_by_note = getEventName();\n\n    // Include trade IDs, work type IDs, and sales rep ID in the form data\n    // Call center rep is automatically set to BDC Rep (88443) on the backend\n    const formDataWithTrades = {
       ...form.value,
       tradeIds: selectedTradeIds.value,
       workTypeIds: selectedWorkTypeIds.value,
