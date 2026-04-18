@@ -19,7 +19,7 @@
       <q-list v-if="events.length > 0">
         <q-item
           v-for="event in events"
-          :key="event.id"
+          :key="event._id"
           clickable
           @click="selectEvent(event)"
         >
@@ -112,7 +112,8 @@ import { useEventStore } from "../stores/event-store";
 
 // Event interface
 interface Event {
-  id: string;
+  _id: string;
+  id?: string; // Mongoose virtual — may or may not be present
   name: string;
   description?: string;
   isActive: boolean;
@@ -239,9 +240,9 @@ const toggleActive = async (event: Event, activate: boolean) => {
     try {
       let response;
       if (activate) {
-        response = await apiService.activateEvent(event.id);
+        response = await apiService.activateEvent(event._id);
       } else {
-        response = await apiService.updateEvent(event.id, { isActive: false });
+        response = await apiService.updateEvent(event._id, { isActive: false });
       }
       if (response.success) {
         Notify.create({
@@ -249,7 +250,7 @@ const toggleActive = async (event: Event, activate: boolean) => {
           message: `Event ${action}d successfully`
         });
         await fetchEvents();
-        if (!activate && selectedEvent.value?.id === event.id) {
+        if (!activate && selectedEvent.value?._id === event._id) {
           selectedEvent.value = null;
           eventStore.setCurrentEvent(null);
         }
