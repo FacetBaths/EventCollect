@@ -228,14 +228,14 @@ const createEvent = async () => {
   }
 };
 
-const toggleActive = async (event: Event, activate: boolean) =&gt; {
+const toggleActive = async (event: Event, activate: boolean) => {
   const action = activate ? 'activate' : 'deactivate';
   $q.dialog({
     title: 'Confirm',
     message: `Are you sure you want to ${action} "${event.name}"?`,
     cancel: true,
     persistent: true
-  }).onOk(async () =&gt; {
+  }).onOk(async () => {
     try {
       let response;
       if (activate) {
@@ -249,7 +249,7 @@ const toggleActive = async (event: Event, activate: boolean) =&gt; {
           message: `Event ${action}d successfully`
         });
         await fetchEvents();
-        if (!activate &amp;&amp; selectedEvent.value?.id === event.id) {
+        if (!activate && selectedEvent.value?.id === event.id) {
           selectedEvent.value = null;
           eventStore.setCurrentEvent(null);
         }
