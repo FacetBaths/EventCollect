@@ -1073,7 +1073,7 @@ export class LeapService {
             description += "\n\n--- APPOINTMENT REQUEST ---";
             
             if (data.appointmentDetails.preferredDate) {
-              const formattedDate = new Date(data.appointmentDetails.preferredDate).toLocaleDateString('en-US', {
+              const formattedDate = (() => { const [y,m,d] = data.appointmentDetails.preferredDate.split('-').map(Number); return new Date(y, m-1, d, 12, 0, 0); })().toLocaleDateString('en-US', {
                 weekday: 'long',
                 year: 'numeric', 
                 month: 'long',
@@ -1180,7 +1180,7 @@ export class LeapService {
             description += "\n\n--- APPOINTMENT REQUEST ---";
             
             if (data.appointmentDetails.preferredDate) {
-              const formattedDate = new Date(data.appointmentDetails.preferredDate).toLocaleDateString('en-US', {
+              const formattedDate = (() => { const [y,m,d] = data.appointmentDetails.preferredDate.split('-').map(Number); return new Date(y, m-1, d, 12, 0, 0); })().toLocaleDateString('en-US', {
                 weekday: 'long',
                 year: 'numeric', 
                 month: 'long',
@@ -1318,7 +1318,7 @@ export class LeapService {
           description += "\n\n--- APPOINTMENT REQUEST ---";
           
           if (data.appointmentDetails.preferredDate) {
-            const formattedDate = new Date(data.appointmentDetails.preferredDate).toLocaleDateString('en-US', {
+            const formattedDate = (() => { const [y,m,d] = data.appointmentDetails.preferredDate.split('-').map(Number); return new Date(y, m-1, d, 12, 0, 0); })().toLocaleDateString('en-US', {
               weekday: 'long',
               year: 'numeric', 
               month: 'long',
@@ -1937,7 +1937,7 @@ export class LeapService {
           description += "\n\n--- APPOINTMENT REQUEST ---";
           
           if (data.appointmentDetails.preferredDate) {
-            const formattedDate = new Date(data.appointmentDetails.preferredDate).toLocaleDateString('en-US', {
+            const formattedDate = (() => { const [y,m,d] = data.appointmentDetails.preferredDate.split('-').map(Number); return new Date(y, m-1, d, 12, 0, 0); })().toLocaleDateString('en-US', {
               weekday: 'long',
               year: 'numeric', 
               month: 'long',

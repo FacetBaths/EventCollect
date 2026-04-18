@@ -205,7 +205,7 @@ async function fetchStaffAvailability() {
         // Process MongoDB appointments - map to expected format
         calendarEvents.value = data.map((appointment: any, index: number) => ({
           id: appointment._id || appointment.id || index,
-          date: appointment.date ? new Date(appointment.date).toISOString().split('T')[0] : '',
+          date: appointment.date ? (() => { const d = new Date(appointment.date); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })() : '',
           time: appointment.timeSlot || '',  // MongoDB uses timeSlot field
           timeSlot: appointment.timeSlot || '',
           endTime: '', // Not used in our simple 3-slot system
@@ -271,26 +271,29 @@ function getAppointmentsForDateTime(date: string, time: string): any[] {
   });
 }
 
+function parseDateLocal(dateStr: string): Date {
+  // Parse YYYY-MM-DD as local time (noon) to prevent UTC timezone shift
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0);
+}
+
 function formatDayHeader(date: string): string {
-  const dateObj = new Date(date);
-  return dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+  return parseDateLocal(date).toLocaleDateString('en-US', { weekday: 'short' });
 }
 
 function formatDateShort(date: string): string {
-  const dateObj = new Date(date);
-  return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return parseDateLocal(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 function formatWeekRange(startDate: string, endDate: string): string {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  
+  const start = parseDateLocal(startDate);
+  const end = parseDateLocal(endDate);
   return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 }
 
 function getDayCardClass(date: string): string {
   const today = new Date().toISOString().split('T')[0];
-  const dateObj = new Date(date);
+  const dateObj = parseDateLocal(date);
   const dayOfWeek = dateObj.getDay();
   
   if (date === today) {

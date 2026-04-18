@@ -295,8 +295,14 @@ function getSlotLabel(slot: TimeSlot): string {
   return slot.time;
 }
 
+function parseDateLocal(dateStr: string): Date {
+  // Parse YYYY-MM-DD as local time (not UTC) to prevent timezone shift
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0);
+}
+
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
+  const date = parseDateLocal(dateStr);
   return date.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -307,10 +313,9 @@ function formatDate(dateStr: string): string {
 
 function formatDateTime(date: string, time: string): string {
   if (!date) return 'No date specified';
-
-  const dateObj = new Date(date);
-  const dateStr = dateObj.toLocaleDateString();
-
+  const dateStr = parseDateLocal(date).toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+  });
   return `${dateStr} at ${time}`;
 }
 
