@@ -82,6 +82,30 @@
           @filter="(val, update) => update()"
         />
 
+        <!-- Sales Rep -->
+        <q-select
+          v-model="batchSalesRepId"
+          :options="salesRepOptions"
+          emit-value map-options clearable
+          option-value="value" option-label="label"
+          label="Sales Rep"
+          dense outlined
+          style="min-width: 180px"
+          :loading="leapLoading"
+        />
+
+        <!-- Division -->
+        <q-select
+          v-model="batchDivisionId"
+          :options="divisionOptions"
+          emit-value map-options clearable
+          option-value="value" option-label="label"
+          label="Division"
+          dense outlined
+          style="min-width: 150px"
+          :loading="leapLoading"
+        />
+
         <!-- Temperature -->
         <div class="row items-center q-gutter-sm" style="min-width: 180px">
           <div class="text-caption text-grey-7 col-auto">Temp:</div>
@@ -119,7 +143,7 @@
           color="purple"
           unelevated
           :loading="batchUpdating"
-          :disable="!batchEventName && !batchTempRating"
+          :disable="!batchEventName && !batchTempRating && !batchSalesRepId && !batchDivisionId"
           @click="batchApplyChanges"
         />
         <q-btn flat label="Clear Selection" color="grey" @click="selectedLeadIds.value = new Set()" />
@@ -495,7 +519,7 @@
               </q-card>
             </q-expansion-item>
 
-            <!-- LEAP CRM Details -->
+<!-- LEAP CRM Details -->
             <q-expansion-item
               icon="cloud"
               label="LEAP CRM Details"
@@ -503,39 +527,50 @@
             >
               <q-card>
                 <q-card-section>
-                  <div class="row q-gutter-sm q-mb-sm">
-                    <q-input
-                      filled
-                      v-model.number="selectedLead.tradeIds"
-                      label="Trade IDs"
-                      class="col"
-                    />
-                    <q-input
-                      filled
-                      v-model.number="selectedLead.workTypeIds"
-                      label="Work Type IDs"
-                      class="col"
-                    />
-                  </div>
-                  <div class="row q-gutter-sm q-mb-sm">
-                    <q-input
-                      filled
-                      v-model.number="selectedLead.salesRepId"
-                      label="Sales Rep ID"
-                      class="col"
-                    />
-                    <q-input
-                      filled
-                      v-model.number="selectedLead.callCenterRepId"
-                      label="Call Center Rep ID"
-                      class="col"
-                    />
-                  </div>
-                  <q-input
+                  <q-select
                     filled
-                    v-model.number="selectedLead.divisionId"
-                    label="Division ID"
-                    class="q-mb-sm"
+                    v-model="selectedLead.tradeIds"
+                    :options="tradeOptions"
+                    multiple use-chips emit-value map-options
+                    option-value="value" option-label="label"
+                    label="Trades" class="q-mb-sm"
+                    :loading="leapLoading"
+                  />
+                  <q-select
+                    filled
+                    v-model="selectedLead.workTypeIds"
+                    :options="workTypeOptions"
+                    multiple use-chips emit-value map-options
+                    option-value="value" option-label="label"
+                    label="Work Types" class="q-mb-sm"
+                    :loading="leapLoading"
+                  />
+                  <q-select
+                    filled
+                    v-model="selectedLead.salesRepId"
+                    :options="salesRepOptions"
+                    emit-value map-options clearable
+                    option-value="value" option-label="label"
+                    label="Sales Rep" class="q-mb-sm"
+                    :loading="leapLoading"
+                  />
+                  <q-select
+                    filled
+                    v-model="selectedLead.callCenterRepId"
+                    :options="salesRepOptions"
+                    emit-value map-options clearable
+                    option-value="value" option-label="label"
+                    label="Call Center Rep" class="q-mb-sm"
+                    :loading="leapLoading"
+                  />
+                  <q-select
+                    filled
+                    v-model="selectedLead.divisionId"
+                    :options="divisionOptions"
+                    emit-value map-options clearable
+                    option-value="value" option-label="label"
+                    label="Division" class="q-mb-sm"
+                    :loading="leapLoading"
                   />
                 </q-card-section>
               </q-card>
@@ -678,39 +713,52 @@
 
               <!-- LEAP CRM Details -->
               <div class="text-subtitle1 text-weight-medium q-mb-md q-mt-lg">LEAP CRM Details</div>
-              <div class="row q-gutter-sm q-mb-sm">
-                <q-input
-                  filled
-                  v-model.number="selectedLead.tradeIds"
-                  label="Trade IDs"
-                  class="col"
-                />
-                <q-input
-                  filled
-                  v-model.number="selectedLead.workTypeIds"
-                  label="Work Type IDs"
-                  class="col"
-                />
-              </div>
-              <div class="row q-gutter-sm q-mb-sm">
-                <q-input
-                  filled
-                  v-model.number="selectedLead.salesRepId"
-                  label="Sales Rep ID"
-                  class="col"
-                />
-                <q-input
-                  filled
-                  v-model.number="selectedLead.callCenterRepId"
-                  label="Call Center Rep ID"
-                  class="col"
-                />
-              </div>
-              <q-input
+              <q-select
                 filled
-                v-model.number="selectedLead.divisionId"
-                label="Division ID"
-                class="q-mb-md"
+                v-model="selectedLead.tradeIds"
+                :options="tradeOptions"
+                multiple use-chips emit-value map-options
+                option-value="value" option-label="label"
+                label="Trades" class="q-mb-sm"
+                :loading="leapLoading"
+              />
+              <q-select
+                filled
+                v-model="selectedLead.workTypeIds"
+                :options="workTypeOptions"
+                multiple use-chips emit-value map-options
+                option-value="value" option-label="label"
+                label="Work Types" class="q-mb-sm"
+                :loading="leapLoading"
+              />
+              <div class="row q-gutter-sm q-mb-sm">
+                <q-select
+                  filled
+                  v-model="selectedLead.salesRepId"
+                  :options="salesRepOptions"
+                  emit-value map-options clearable
+                  option-value="value" option-label="label"
+                  label="Sales Rep" class="col"
+                  :loading="leapLoading"
+                />
+                <q-select
+                  filled
+                  v-model="selectedLead.callCenterRepId"
+                  :options="salesRepOptions"
+                  emit-value map-options clearable
+                  option-value="value" option-label="label"
+                  label="Call Center Rep" class="col"
+                  :loading="leapLoading"
+                />
+              </div>
+              <q-select
+                filled
+                v-model="selectedLead.divisionId"
+                :options="divisionOptions"
+                emit-value map-options clearable
+                option-value="value" option-label="label"
+                label="Division" class="q-mb-md"
+                :loading="leapLoading"
               />
               
               <!-- Appointment Preferences (Desktop) -->
@@ -831,6 +879,7 @@ import LeadCard from '../components/LeadCard.vue';
 import CsvImportDialog from '../components/CsvImportDialog.vue';
 import { useEventStore } from '../stores/event-store';
 import { useCopyLead } from '../composables/useCopyLead';
+import { useLeapData } from '../composables/useLeapData';
 
 interface Lead {
   _id: string;
@@ -888,6 +937,9 @@ const selectedLead = ref<Lead | null>(null);
 const eventStore = useEventStore();
 const eventOptions = ref<string[]>([]);
 
+// LEAP CRM data (names for dropdowns)
+const { salesRepOptions, divisionOptions, tradeOptions, workTypeOptions, loading: leapLoading } = useLeapData();
+
 // Copy functionality
 const { copyLeadToClipboard } = useCopyLead();
 const copyingLeadIds = ref<string[]>([]);
@@ -909,6 +961,8 @@ const batchMode = ref(false);
 let selectedLeadIds = ref(new Set<string>());
 const batchEventName = ref('');
 const batchTempRating = ref<number | null>(null);
+const batchSalesRepId = ref<number | null>(null);
+const batchDivisionId = ref<number | null>(null);
 const batchUpdating = ref(false);
 const tableSelectedLeads = ref<Lead[]>([]);
 
@@ -1081,6 +1135,8 @@ function toggleBatchMode() {
   tableSelectedLeads.value = [];
   batchEventName.value = '';
   batchTempRating.value = null;
+  batchSalesRepId.value = null;
+  batchDivisionId.value = null;
 }
 
 function toggleLeadSelection(id: string) {
@@ -1104,11 +1160,13 @@ async function batchApplyChanges() {
     ? tableSelectedLeads.value.map(l => l._id)
     : [...selectedLeadIds.value];
 
-  if (!ids.length || (!batchEventName.value && !batchTempRating.value)) return;
+  if (!ids.length || (!batchEventName.value && !batchTempRating.value && !batchSalesRepId.value && !batchDivisionId.value)) return;
 
   batchUpdating.value = true;
   const eventName = batchEventName.value?.trim() || null;
   const tempRating = batchTempRating.value;
+  const salesRepId = batchSalesRepId.value;
+  const divisionId = batchDivisionId.value;
   let succeeded = 0;
   let failed = 0;
 
@@ -1128,6 +1186,12 @@ async function batchApplyChanges() {
         if (tempRating !== null) {
           patch.tempRating = tempRating;
         }
+        if (salesRepId !== null) {
+          patch.salesRepId = salesRepId;
+        }
+        if (divisionId !== null) {
+          patch.divisionId = divisionId;
+        }
         await apiService.updateLead(id, patch);
         succeeded++;
       } catch {
@@ -1138,9 +1202,18 @@ async function batchApplyChanges() {
 
   batchUpdating.value = false;
 
+  const repName = salesRepId !== null
+    ? salesRepOptions.value.find(r => r.value === salesRepId)?.label || `Rep #${salesRepId}`
+    : null;
+  const divName = divisionId !== null
+    ? divisionOptions.value.find(d => d.value === divisionId)?.label || `Div #${divisionId}`
+    : null;
+
   const changes = [
     eventName ? `event → "${eventName}"` : null,
     tempRating !== null ? `temp → ${tempRating}/10` : null,
+    repName ? `rep → ${repName}` : null,
+    divName ? `division → ${divName}` : null,
   ].filter(Boolean).join(', ');
 
   Notify.create({
@@ -1157,6 +1230,8 @@ async function batchApplyChanges() {
   tableSelectedLeads.value = [];
   batchEventName.value = '';
   batchTempRating.value = null;
+  batchSalesRepId.value = null;
+  batchDivisionId.value = null;
 }
 
 function editLead(lead: Lead) {
