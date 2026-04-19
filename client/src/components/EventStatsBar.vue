@@ -1,71 +1,56 @@
 <template>
-  <div class="stats-bar" :class="{ 'stats-bar--loading': loading && !stats }">
-    <!-- Event name + refresh -->
-    <div class="stats-event-name">
-      <q-icon name="event" size="14px" class="q-mr-xs" />
-      <span class="text-caption text-weight-medium">{{ eventName || 'No event selected' }}</span>
-      <q-btn
-        flat dense round
-        icon="refresh"
-        size="xs"
-        color="white"
-        class="q-ml-xs stats-refresh-btn"
-        :loading="loading"
-        @click="fetchStats"
-      >
-        <q-tooltip>Refresh stats</q-tooltip>
-      </q-btn>
+  <div class="stats-card">
+    <div class="stats-card__header">
+      <span class="stats-card__title">Live Stats</span>
+      <q-btn flat dense round icon="refresh" size="xs" color="primary"
+        :loading="loading" @click="fetchStats" style="opacity:.6" />
     </div>
 
-    <!-- Stats chips — hidden until loaded -->
-    <div v-if="stats" class="stats-chips">
+    <div v-if="stats" class="stats-card__body">
       <!-- TODAY -->
-      <div class="stats-group">
-        <span class="stats-label">TODAY</span>
-        <div class="stats-pills">
-          <div class="stats-pill stats-pill--leads">
-            <span class="stats-pill__num">{{ stats.today.leads }}</span>
-            <span class="stats-pill__lbl">Leads</span>
+      <div class="stats-section">
+        <div class="stats-section__label">TODAY</div>
+        <div class="stats-row">
+          <div class="stat-box stat-box--leads">
+            <div class="stat-box__num">{{ stats.today.leads }}</div>
+            <div class="stat-box__lbl">Leads</div>
           </div>
-          <span class="stats-sep">+</span>
-          <div class="stats-pill stats-pill--appts">
-            <span class="stats-pill__num">{{ stats.today.appointments }}</span>
-            <span class="stats-pill__lbl">Appts</span>
+          <div class="stat-box stat-box--appts">
+            <div class="stat-box__num">{{ stats.today.appointments }}</div>
+            <div class="stat-box__lbl">Appts</div>
           </div>
-          <span class="stats-sep">=</span>
-          <div class="stats-pill stats-pill--entries">
-            <span class="stats-pill__num">{{ stats.today.entries }}</span>
-            <span class="stats-pill__lbl">Entries</span>
+          <div class="stat-box stat-box--entries">
+            <div class="stat-box__num">{{ stats.today.entries }}</div>
+            <div class="stat-box__lbl">Total</div>
           </div>
         </div>
       </div>
 
       <div class="stats-divider" />
 
-      <!-- TOTAL -->
-      <div class="stats-group">
-        <span class="stats-label">TOTAL</span>
-        <div class="stats-pills">
-          <div class="stats-pill stats-pill--leads">
-            <span class="stats-pill__num">{{ stats.total.leads }}</span>
-            <span class="stats-pill__lbl">Leads</span>
+      <!-- EVENT TOTAL -->
+      <div class="stats-section">
+        <div class="stats-section__label">EVENT TOTAL</div>
+        <div class="stats-row">
+          <div class="stat-box stat-box--leads">
+            <div class="stat-box__num">{{ stats.total.leads }}</div>
+            <div class="stat-box__lbl">Leads</div>
           </div>
-          <span class="stats-sep">+</span>
-          <div class="stats-pill stats-pill--appts">
-            <span class="stats-pill__num">{{ stats.total.appointments }}</span>
-            <span class="stats-pill__lbl">Appts</span>
+          <div class="stat-box stat-box--appts">
+            <div class="stat-box__num">{{ stats.total.appointments }}</div>
+            <div class="stat-box__lbl">Appts</div>
           </div>
-          <span class="stats-sep">=</span>
-          <div class="stats-pill stats-pill--entries">
-            <span class="stats-pill__num">{{ stats.total.entries }}</span>
-            <span class="stats-pill__lbl">Entries</span>
+          <div class="stat-box stat-box--entries">
+            <div class="stat-box__num">{{ stats.total.entries }}</div>
+            <div class="stat-box__lbl">Total</div>
           </div>
         </div>
       </div>
     </div>
 
-    <div v-else-if="!loading" class="stats-chips stats-chips--empty">
-      <span class="text-caption" style="opacity:.5">— no data yet —</span>
+    <div v-else class="stats-card__empty">
+      <q-spinner v-if="loading" size="sm" color="primary" />
+      <span v-else class="text-caption text-grey-5">No data yet</span>
     </div>
   </div>
 </template>
@@ -74,7 +59,7 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { apiService } from '../services/api';
 
-const props = defineProps<{ eventName?: string }>();
+const props = defineProps<{ eventName?: string; compact?: boolean }>();
 
 interface StatGroup { leads: number; appointments: number; entries: number; }
 interface Stats { today: StatGroup; total: StatGroup; }
@@ -89,116 +74,91 @@ async function fetchStats() {
   try {
     const res = await apiService.getLeadStats(props.eventName);
     if (res.success && res.data) stats.value = res.data;
-  } catch { /* fail silently — stats are decorative */ }
+  } catch { /* fail silently */ }
   finally { loading.value = false; }
 }
 
-onMounted(() => {
-  fetchStats();
-  timer = setInterval(fetchStats, 60_000); // refresh every minute
-});
+onMounted(() => { fetchStats(); timer = setInterval(fetchStats, 60_000); });
 onUnmounted(() => { if (timer) clearInterval(timer); });
 watch(() => props.eventName, fetchStats);
 </script>
 
 <style scoped>
-.stats-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  padding: 6px 16px;
-  background: linear-gradient(135deg, rgba(153,69,255,0.12) 0%, rgba(20,241,149,0.08) 100%);
-  border-top: 1px solid rgba(153,69,255,0.15);
-  min-height: 36px;
+.stats-card {
+  background: linear-gradient(135deg, rgba(153,69,255,0.07) 0%, rgba(20,241,149,0.05) 100%);
+  border: 1px solid rgba(153,69,255,0.15);
+  border-radius: 12px;
+  padding: 10px 12px;
 }
 
-.stats-event-name {
+.stats-card__header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
+  margin-bottom: 8px;
+}
+
+.stats-card__title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
   color: #9945FF;
-  font-size: 12px;
-  white-space: nowrap;
-  flex-shrink: 0;
+  opacity: 0.8;
 }
 
-.stats-refresh-btn { opacity: 0.6; }
-.stats-refresh-btn:hover { opacity: 1; }
+.stats-section { margin-bottom: 6px; }
+.stats-section:last-child { margin-bottom: 0; }
 
-.stats-chips {
-  display: flex;
-  align-items: center;
-  gap: 6px 12px;
-  flex-wrap: wrap;
-  flex: 1;
-  justify-content: flex-end;
+.stats-section__label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(0,0,0,0.35);
+  margin-bottom: 4px;
 }
 
-.stats-group {
+.stats-row {
   display: flex;
-  align-items: center;
   gap: 6px;
 }
 
-.stats-label {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: rgba(153,69,255,0.6);
-  white-space: nowrap;
-}
-
-.stats-pills {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.stats-sep {
-  font-size: 11px;
-  color: rgba(0,0,0,0.25);
-  font-weight: 600;
-}
-
-.stats-pill {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 2px 8px;
+.stat-box {
+  flex: 1;
+  text-align: center;
+  padding: 4px 6px;
   border-radius: 8px;
-  min-width: 38px;
 }
 
-.stats-pill__num {
-  font-size: 16px;
-  font-weight: 800;
-  line-height: 1.1;
+.stat-box__num {
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
 }
 
-.stats-pill__lbl {
+.stat-box__lbl {
   font-size: 8px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
   text-transform: uppercase;
-  opacity: 0.7;
+  opacity: 0.65;
+  margin-top: 1px;
 }
 
-.stats-pill--leads   { background: rgba(153,69,255,0.12); color: #7c3de0; }
-.stats-pill--appts   { background: rgba(20,241,149,0.15); color: #0d9b5f; }
-.stats-pill--entries { background: rgba(30,30,30,0.07);   color: #333;    font-weight: 900; }
-.stats-pill--entries .stats-pill__num { font-size: 18px; }
+.stat-box--leads   { background: rgba(153,69,255,0.10); color: #7c3de0; }
+.stat-box--appts   { background: rgba(20,241,149,0.15); color: #0d9b5f; }
+.stat-box--entries { background: rgba(30,30,30,0.06);   color: #222; }
+.stat-box--entries .stat-box__num { font-size: 22px; }
 
 .stats-divider {
-  width: 1px;
-  height: 28px;
-  background: rgba(153,69,255,0.2);
-  flex-shrink: 0;
+  height: 1px;
+  background: rgba(153,69,255,0.1);
+  margin: 8px 0;
 }
 
-@media (max-width: 600px) {
-  .stats-bar { justify-content: space-between; }
-  .stats-chips { justify-content: flex-start; }
-  .stats-pill__num { font-size: 14px; }
-  .stats-pill--entries .stats-pill__num { font-size: 15px; }
+.stats-card__empty {
+  text-align: center;
+  padding: 8px 0;
 }
 </style>

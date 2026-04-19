@@ -67,8 +67,11 @@
         </q-btn>
       </q-toolbar>
 
-      <!-- Row 2: live stats bar -->
-      <EventStatsBar :event-name="currentEvent || ''" />
+      <!-- Row 2: active event -->
+      <div class="event-bar q-px-md q-py-xs">
+        <q-icon name="event" size="xs" color="accent" class="q-mr-xs" />
+        <span class="text-caption text-accent">{{ currentEvent || 'No event selected' }}</span>
+      </div>
     </q-header>
 
     <q-drawer
@@ -108,6 +111,13 @@
         </q-item>
 
         <q-separator class="q-my-md" />
+
+        <!-- Stats card -->
+        <div class="q-px-md q-pb-md">
+          <EventStatsBar :event-name="currentEvent || ''" compact />
+        </div>
+
+        <q-separator class="q-mb-sm" />
 
         <!-- Mobile-specific actions -->
         <q-item clickable v-ripple @click="resyncLeapData" :disable="resyncLoading">
