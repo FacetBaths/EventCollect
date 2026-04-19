@@ -27,8 +27,6 @@
             </div>
           </div>
         </q-toolbar-title>
-          </div>
-        </q-toolbar-title>
 
         <!-- Desktop nav buttons -->
         <div v-if="$q.screen.gt.sm" class="desktop-nav q-mr-sm">
