@@ -51,7 +51,7 @@
       </q-toolbar>
 
       <!-- Row 2: active event (full width, both mobile and desktop) -->
-      <div class="event-bar q-px-md q-pb-xs">
+      <div class="event-bar q-px-md q-py-xs">
         <q-icon name="event" size="xs" color="accent" class="q-mr-xs" />
         <span class="text-caption text-accent">
           {{ currentEvent || 'No event selected' }}
@@ -117,7 +117,7 @@
 import { ref, computed } from 'vue';
 import { Notify } from 'quasar';
 import { apiService } from '../services/api';
-import { useEventStore } from 'stores/event-store';
+import { useEventStore } from '../stores/event-store';
 import versionInfo from '../version.json';
 
 interface NavigationLink {
@@ -238,7 +238,7 @@ async function resyncLeapData() {
   border-top: 1px solid rgba(153, 69, 255, 0.1);
   display: flex;
   align-items: center;
-  min-height: 28px;
+  min-height: 32px;
 }
 
 .desktop-nav {
