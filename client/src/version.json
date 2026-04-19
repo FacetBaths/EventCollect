@@ -1,15 +1,5 @@
 {
-  "version": "2.0.2",
-  "buildDate": "2025-10-11",
-  "features": [
-    "📅 Real LEAP Appointment Creation - Creates actual appointments in LEAP CRM with job association",
-    "🔄 Automatic LEAP Sync - Waits for job sync completion, then creates LEAP appointments",
-    "⏰ Time Format Conversion - Converts AM/PM to 24-hour format for LEAP compatibility",
-    "🏗️ Railway Deployment Fix - Proper yarn workspace integration for cloud deployment",
-    "🛡️ Lead Duplication Prevention - Prevents duplicate Customer and Job records in LEAP",
-    "🔄 Enhanced Data Preservation - Maintains referral info and rep assignments during updates",
-    "🏢 Job Division Field Fix - Properly sets division (e.g., Supplier, Renovation) for all job operations",
-    "📝 Enhanced Logging - Comprehensive appointment creation process logging",
-    "🚀 Dual Calendar System - Appointments appear in both Staff Calendar AND LEAP CRM"
-  ]
+  "version": "2.0.3",
+  "commit": "2026-04-19T01:58:49Z",
+  "buildDate": "2026-04-19"
 }

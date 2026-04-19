@@ -108,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, computed, ref, nextTick } from 'vue';
+import { defineProps, computed, ref } from 'vue';
 import { useCopyLead } from '../composables/useCopyLead';
 
 const props = defineProps({
@@ -202,9 +202,9 @@ function formatDate(dateString: string): string {
 }
 function closeMenuThen(action: () => void) {
   actionMenuOpen.value = false;
-  void nextTick(() => {
-    window.setTimeout(action, 0);
-  });
+  // Use a small delay so the menu finishes closing before the action fires.
+  // nextTick alone is not enough on iOS Safari — a 50ms timeout is reliable.
+  window.setTimeout(action, 50);
 }
 
 function openEdit() {
