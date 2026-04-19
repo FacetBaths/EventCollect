@@ -142,6 +142,15 @@ export class LeapService {
     );
   }
 
+
+  /** Normalize tradeIds/workTypeIds to a guaranteed number[] regardless of how they were stored */
+  private toIntArray(val: any, fallback: number[]): number[] {
+    if (!val) return fallback;
+    const arr = Array.isArray(val) ? val : [val];
+    const nums = arr.map((v: any) => parseInt(String(v), 10)).filter((n: number) => !isNaN(n));
+    return nums.length > 0 ? nums : fallback;
+  }
+
   /**
    * Create a new customer in LEAP CRM
    */
@@ -1113,7 +1122,7 @@ export class LeapService {
           customer_id: resolvedCustomerId,
           division_id: leadData.divisionId || 6496, // Default to Renovation division
           description: buildJobDescription(leadData),
-          trades: (leadData.tradeIds && leadData.tradeIds.length > 0) ? leadData.tradeIds : [105], // Default to BATH REMODEL
+          trades: this.toIntArray(leadData.tradeIds, [105]), // Default to BATH REMODEL
           estimator_ids: leadData.salesRepId ? [leadData.salesRepId] : [],
           same_as_customer_address: 1,
           address: {
@@ -1124,7 +1133,7 @@ export class LeapService {
             country: "United States"
           },
           referral_source: leadData.referred_by_note || leadData.referredBy || leadData.eventName,
-          work_types: (leadData.workTypeIds && leadData.workTypeIds.length > 0) ? leadData.workTypeIds : [91139], // Default to Full Remodel
+          work_types: this.toIntArray(leadData.workTypeIds, [91139]), // Default to Full Remodel
           other_trade_type_description: leadData.servicesOfInterest?.join(", ") || "",
           appointment_required: leadData.appointmentDetails ? 1 : 0,
           status: "new" as const
@@ -1219,7 +1228,7 @@ export class LeapService {
           description: buildJobDescription(leadData),
           customer_id: resolvedCustomerId,
           division_id: leadData.divisionId || 6496, // Default to Renovation division
-          trades: (leadData.tradeIds && leadData.tradeIds.length > 0) ? leadData.tradeIds : [105],
+          trades: this.toIntArray(leadData.tradeIds, [105]),
           estimator_ids: leadData.salesRepId ? [leadData.salesRepId] : [], // Preserve job-level rep assignment
           same_as_customer_address: 1,
           address: {
@@ -1230,7 +1239,7 @@ export class LeapService {
             country: "United States"
           },
           referral_source: leadData.referred_by_note || leadData.referredBy || leadData.eventName,
-          work_types: (leadData.workTypeIds && leadData.workTypeIds.length > 0) ? leadData.workTypeIds : [91139],
+          work_types: this.toIntArray(leadData.workTypeIds, [91139]),
           other_trade_type_description: leadData.servicesOfInterest?.join(", ") || "",
           appointment_required: leadData.appointmentDetails ? 1 : 0
           // Note: NOT setting 'name' to avoid unexpected renames during updates
@@ -1359,7 +1368,7 @@ export class LeapService {
         description: buildJobDescription(leadData),
         customer_id: leadData.leapCustomerId, // Required field
         division_id: (leadData as any).divisionId || 6496, // Default to Renovation division
-        trades: (leadData.tradeIds && leadData.tradeIds.length > 0) ? leadData.tradeIds : [105], // Required field - default to BATH REMODEL
+        trades: this.toIntArray(leadData.tradeIds, [105]), // Required field - default to BATH REMODEL
         same_as_customer_address: 1, // Required field
         address: {
           address_line_1: leadData.address.street,
@@ -1370,7 +1379,7 @@ export class LeapService {
         },
         referral_source: leadData.referredBy || leadData.eventName,
         // Additional fields that might be helpful
-        work_types: (leadData.workTypeIds && leadData.workTypeIds.length > 0) ? leadData.workTypeIds : [91139], // Default to Full Remodel
+        work_types: this.toIntArray(leadData.workTypeIds, [91139]), // Default to Full Remodel
         other_trade_type_description: leadData.servicesOfInterest?.join(", ") || "",
         appointment_required: leadData.appointmentDetails ? 1 : 0
       };
@@ -2016,8 +2025,8 @@ export class LeapService {
           // alt_id: removed as it was causing issues in LEAP
           estimator_ids: leadData.salesRepId ? [leadData.salesRepId] : [],
           description: buildJobDescription(leadData),
-          trades: (leadData.tradeIds && leadData.tradeIds.length > 0) ? leadData.tradeIds : [105], // Default to BATH REMODEL (105)
-          work_types: (leadData.workTypeIds && leadData.workTypeIds.length > 0) ? leadData.workTypeIds : [91139], // Default to Full Remodel (91139)
+          trades: this.toIntArray(leadData.tradeIds, [105]), // Default to BATH REMODEL (105)
+          work_types: this.toIntArray(leadData.workTypeIds, [91139]), // Default to Full Remodel (91139)
           other_trade_type_description: leadData.servicesOfInterest.join(", "),
           call_required: 0,
           appointment_required: leadData.appointmentDetails ? 1 : 0,
@@ -2165,7 +2174,7 @@ export class LeapService {
               name: leadData.leadId || `${lastName} - ${leadData.referredBy || leadData.eventName}`,
               description: buildJobDescription(leadData),
               customer_id: leadData.leapCustomerId, // Required field
-              trades: (leadData.tradeIds && leadData.tradeIds.length > 0) ? leadData.tradeIds : [105], // Required field - default to BATH REMODEL
+              trades: this.toIntArray(leadData.tradeIds, [105]), // Required field - default to BATH REMODEL
               same_as_customer_address: 1, // Required field
               address: {
                 address_line_1: leadData.address.street,
@@ -2176,7 +2185,7 @@ export class LeapService {
               },
               referral_source: leadData.referredBy || leadData.eventName,
               // Additional fields that might be helpful
-              work_types: (leadData.workTypeIds && leadData.workTypeIds.length > 0) ? leadData.workTypeIds : [91139], // Default to Full Remodel
+              work_types: this.toIntArray(leadData.workTypeIds, [91139]), // Default to Full Remodel
               other_trade_type_description: leadData.servicesOfInterest?.join(", ") || "",
               appointment_required: leadData.appointmentDetails ? 1 : 0
             };
