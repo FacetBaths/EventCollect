@@ -188,6 +188,15 @@ export const apiService = {
   },
 
   // Events management
+  async getLeadStats(eventName?: string): Promise<ApiResponse<any>> {
+    const today = new Date();
+    const date = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    const params = new URLSearchParams({ date });
+    if (eventName) params.set('eventName', eventName);
+    const response = await api.get(`/leads/stats?${params.toString()}`);
+    return response.data;
+  },
+
   async getEvents(): Promise<ApiResponse<any[]>> {
     const response = await api.get('/events');
     return response.data;

@@ -499,6 +499,49 @@ router.post("/import-csv", upload.single('csvFile') as any, async (req, res) => 
   }
 });
 
+// GET /api/leads/stats — read-only aggregation, must be before /:id routes
+router.get("/stats", async (req, res) => {
+  try {
+    const { eventName, date } = req.query;
+
+    // "today" window: use date from client (YYYY-MM-DD) to honour their timezone
+    const dateStr = (date as string) || new Date().toISOString().split('T')[0];
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const todayStart = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
+    const todayEnd   = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
+
+    const eventFilter: Record<string, any> = eventName
+      ? { eventName: eventName as string }
+      : {};
+
+    const pipeline = (matchExtra: Record<string, any>) => Lead.aggregate([
+      { $match: { ...eventFilter, ...matchExtra } },
+      { $group: {
+        _id: null,
+        entries:      { $sum: 1 },
+        appointments: { $sum: { $cond: [{ $eq: ['$wantsAppointment', true] }, 1, 0] } }
+      }}
+    ]);
+
+    const [todayResult, totalResult] = await Promise.all([
+      pipeline({ createdAt: { $gte: todayStart, $lte: todayEnd } }),
+      pipeline({})
+    ]);
+
+    const shape = (r: any[]) => r[0]
+      ? { entries: r[0].entries, appointments: r[0].appointments, leads: r[0].entries - r[0].appointments }
+      : { entries: 0, appointments: 0, leads: 0 };
+
+    res.json({
+      success: true,
+      data: { today: shape(todayResult), total: shape(totalResult) }
+    });
+  } catch (error: any) {
+    logger.error("Error fetching lead stats", { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // GET /api/leads
 router.get("/", async (req, res) => {
   try {

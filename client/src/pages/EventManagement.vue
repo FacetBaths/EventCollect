@@ -20,12 +20,30 @@
           :key="getEventId(event)"
           clickable
           @click="selectEvent(event)"
+          class="event-item"
         >
           <q-item-section>
-            <q-item-label>{{ event.name }}</q-item-label>
+            <q-item-label class="text-weight-medium">{{ event.name }}</q-item-label>
             <q-item-label v-if="event.description" caption>
               {{ event.description }}
             </q-item-label>
+            <!-- Per-event stats row -->
+            <div v-if="eventStats[event.name]" class="event-stats q-mt-xs">
+              <span class="stat-chip stat-chip--leads">
+                <strong>{{ eventStats[event.name].total.leads }}</strong> Leads
+              </span>
+              <span class="stat-plus">+</span>
+              <span class="stat-chip stat-chip--appts">
+                <strong>{{ eventStats[event.name].total.appointments }}</strong> Appts
+              </span>
+              <span class="stat-eq">=</span>
+              <span class="stat-chip stat-chip--entries">
+                <strong>{{ eventStats[event.name].total.entries }}</strong> Entries
+              </span>
+            </div>
+            <div v-else-if="loadingStats" class="text-caption text-grey-5 q-mt-xs">
+              <q-spinner size="10px" /> Loading stats...
+            </div>
           </q-item-section>
 
           <q-item-section side>
@@ -187,6 +205,24 @@ const loading = ref(true);
 const eventStore = useEventStore();
 const $q = useQuasar();
 
+// Per-event stats
+const eventStats = ref<Record<string, any>>({});
+const loadingStats = ref(false);
+
+async function fetchAllStats() {
+  if (!events.value.length) return;
+  loadingStats.value = true;
+  const results = await Promise.allSettled(
+    events.value.map(e => apiService.getLeadStats(e.name))
+  );
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled' && r.value.success) {
+      eventStats.value[events.value[i].name] = r.value.data;
+    }
+  });
+  loadingStats.value = false;
+}
+
 const showEventDialog = ref(false);
 const savingEvent = ref(false);
 const editingEventId = ref<string | null>(null);
@@ -231,6 +267,7 @@ const fetchEvents = async (preferredSelectedId?: string | null) => {
       const fetchedEvents = response.data as Event[];
       events.value = fetchedEvents;
       syncCurrentEventState(fetchedEvents);
+      void fetchAllStats();
 
       const selectedId = preferredSelectedId ?? getEventId(selectedEvent.value);
       selectedEvent.value = selectedId
@@ -410,3 +447,35 @@ onMounted(() => {
   void fetchEvents();
 });
 </script>
+
+<style scoped>
+.event-item { border-bottom: 1px solid rgba(0,0,0,0.05); }
+
+.event-stats {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+}
+
+.stat-chip strong { font-size: 13px; font-weight: 800; }
+
+.stat-chip--leads   { background: rgba(153,69,255,0.10); color: #7c3de0; }
+.stat-chip--appts   { background: rgba(20,241,149,0.15); color: #0d9b5f; }
+.stat-chip--entries { background: rgba(30,30,30,0.07);   color: #333; font-weight: 700; }
+
+.stat-plus, .stat-eq {
+  font-size: 10px;
+  color: rgba(0,0,0,0.3);
+  font-weight: 700;
+}
+</style>

@@ -67,13 +67,8 @@
         </q-btn>
       </q-toolbar>
 
-      <!-- Row 2: active event (full width, both mobile and desktop) -->
-      <div class="event-bar q-px-md q-py-xs">
-        <q-icon name="event" size="xs" color="accent" class="q-mr-xs" />
-        <span class="text-caption text-accent">
-          {{ currentEvent || 'No event selected' }}
-        </span>
-      </div>
+      <!-- Row 2: live stats bar -->
+      <EventStatsBar :event-name="currentEvent || ''" />
     </q-header>
 
     <q-drawer
@@ -135,6 +130,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import EventStatsBar from '../components/EventStatsBar.vue';
 import { Notify } from 'quasar';
 import { apiService } from '../services/api';
 import { useEventStore } from '../stores/event-store';
