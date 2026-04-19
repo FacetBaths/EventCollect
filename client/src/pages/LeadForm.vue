@@ -11,10 +11,18 @@
           <q-input
             filled
             v-model="form.fullName"
-            label="Full Name"
+            label="Full Name (Primary)"
             :rules="[(val) => !!val || 'Full Name is required']"
             hint="Enter the full name"
             lazy-rules
+          />
+
+          <q-input
+            filled
+            v-model="secondPersonName"
+            label="Second Person (optional)"
+            hint="First name only — will share last name. E.g. 'Sandy' → Bill/Sandy Brown"
+            clearable
           />
 
           <q-input
@@ -82,6 +90,24 @@
             hint="Enter any additional notes"
           />
 
+          <!-- Prospect Temperature -->
+          <div class="text-h6 text-primary q-mt-lg">Prospect Temperature</div>
+          <div class="row items-center q-gutter-sm q-mb-md">
+            <div class="col">
+              <q-slider
+                v-model="tempRating"
+                :min="1" :max="10" :step="1"
+                snap :markers="true"
+                :color="tempColor"
+                track-color="grey-3"
+              />
+            </div>
+            <div class="text-weight-bold col-auto text-h6" :class="'text-' + tempColor">
+              {{ tempRating }}/10
+            </div>
+          </div>
+          <div class="text-caption text-grey-6 q-mb-md">1-3: Cold &nbsp;|&nbsp; 4-7: Warm &nbsp;|&nbsp; 8-10: Hot</div>
+
           <div class="text-h6 text-primary q-mt-lg">Set Appointment</div>
           <q-toggle
             v-model="form.wantsAppointment"
@@ -107,6 +133,13 @@
             <SimpleAppointmentPicker
               @appointment-preference-set="onAppointmentPreferenceSet"
             />
+          </div>
+
+          <div v-if="form.wantsAppointment && (!form.appointmentDetails?.preferredDate || !form.appointmentDetails?.preferredTime)" class="q-mt-md">
+            <q-banner class="bg-warning text-white" rounded dense>
+              <q-icon name="warning" class="q-mr-sm" />
+              Please select a date <strong>and</strong> time to enable submission.
+            </q-banner>
           </div>
 
           <div class="q-mt-xl text-center">
@@ -190,7 +223,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Notify } from 'quasar';
 import type { LeadFormData } from '../types/temp-types';
 import { apiService } from '../services/api';
@@ -252,22 +285,37 @@ const loading = ref(false);
 const selectedTradeIds = ref<number[]>([]);
 const selectedWorkTypeIds = ref<number[]>([]);
 const selectedSalesRepId = ref<number | null>(null);
-const showPicker = ref(true); // Control visibility of the appointment picker
+const showPicker = ref(true);
 const leadSaved = ref(false);
 const savedLeadData = ref<any>(null);
 const copyLoading = ref(false);
 const preSubmitCopyLoading = ref(false);
+const secondPersonName = ref('');
+const tempRating = ref(5);
+
+const tempColor = computed(() => {
+  if (tempRating.value <= 3) return 'blue';
+  if (tempRating.value <= 7) return 'orange';
+  return 'red';
+});
 
 // Copy functionality
 const { copyLeadToClipboard } = useCopyLead();
 
 const isFormValid = computed(() => {
-  return (
+  const basic =
     form.value.fullName.trim() !== '' &&
     form.value.email.trim() !== '' &&
     /\S+@\S+\.\S+/.test(form.value.email) &&
-    form.value.phone.trim() !== ''
-  );
+    form.value.phone.trim() !== '';
+
+  // If appointment is requested, date AND time must be set
+  if (form.value.wantsAppointment) {
+    return basic &&
+      !!form.value.appointmentDetails?.preferredDate &&
+      !!form.value.appointmentDetails?.preferredTime;
+  }
+  return basic;
 });
 
 function formatDate(dateStr: string): string {
@@ -355,14 +403,24 @@ async function submitForm() {
     form.value.referredBy = getEventName();
     form.value.referred_by_note = getEventName();
 
-    // Include trade IDs, work type IDs, and sales rep ID in the form data
-    // Call center rep is automatically set to BDC Rep (88443) on the backend
+    // Combine second person name into fullName if provided
+    // "Bill Brown" + "Sandy" → "Bill/Sandy Brown"
+    let fullName = form.value.fullName.trim();
+    if (secondPersonName.value.trim()) {
+      const parts = fullName.split(' ');
+      const primaryFirst = parts[0] ?? 'Unknown';
+      const lastName = parts.slice(1).join(' ') || 'Customer';
+      const secondFirst = secondPersonName.value.trim().split(' ')[0];
+      fullName = `${primaryFirst}/${secondFirst} ${lastName}`;
+    }
+
     const formDataWithTrades = {
       ...form.value,
+      fullName,
+      tempRating: tempRating.value,
       tradeIds: selectedTradeIds.value,
       workTypeIds: selectedWorkTypeIds.value,
       salesRepId: selectedSalesRepId.value || undefined,
-      // Include appointment details if provided
       wantsAppointment: form.value.wantsAppointment,
       appointmentDetails: form.value.wantsAppointment && form.value.appointmentDetails ? form.value.appointmentDetails : undefined
     };
@@ -412,10 +470,11 @@ async function submitForm() {
     }
   } catch (error) {
     console.error('Error submitting lead:', error);
+    // NOTE: form data is intentionally NOT cleared on error so the user doesn't lose their work
     Notify.create({
       type: 'negative',
-      message: 'Failed to submit lead. Please try again.',
-      timeout: 3000,
+      message: 'Failed to submit lead. Your data has been preserved — please try again.',
+      timeout: 5000,
     });
   } finally {
     loading.value = false;
@@ -533,6 +592,8 @@ function resetForm() {
   selectedTradeIds.value = [];
   selectedWorkTypeIds.value = [];
   selectedSalesRepId.value = null;
+  secondPersonName.value = '';
+  tempRating.value = 5;
   leadSaved.value = false;
   savedLeadData.value = null;
   showPicker.value = true;
