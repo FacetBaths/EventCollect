@@ -209,16 +209,15 @@
                     filled
                     v-model="selectedLead.eventName"
                     :options="eventOptions"
-                    label="Event (from server)"
+                    use-input
+                    fill-input
+                    hide-selected
+                    input-debounce="0"
+                    label="Event Name"
+                    hint="Select an existing event or type a custom name"
                     clearable
-                    class="q-mb-sm"
-                  />
-                  <q-input
-                    filled
-                    v-model="selectedLead.eventName"
-                    label="Custom Event Name"
-                    hint="This is the event shown on the dashboard. Use the dropdown above or type your own value here."
                     class="q-mb-md"
+                    @filter="(val, update) => update()"
                   />
                   <q-input
                     filled
@@ -448,46 +447,15 @@
                     filled
                     v-model="selectedLead.eventName"
                     :options="eventOptions"
-                    label="Event (from server)"
+                    use-input
+                    fill-input
+                    hide-selected
+                    input-debounce="0"
+                    label="Event Name"
+                    hint="Select an existing event or type a custom name"
                     clearable
-                    class="q-mb-sm"
-                  />
-                  <q-input
-                    filled
-                    v-model="selectedLead.eventName"
-                    label="Custom Event Name"
-                    hint="This is the event shown on the dashboard. Use the dropdown above or type your own value here."
                     class="q-mb-md"
-                  />
-                  <q-input
-                    filled
-                    :model-value="selectedLead.referredBy || selectedLead.eventName || ''"
-                    label="Referred By"
-                    readonly
-                    class="q-mb-sm"
-                  />
-                  <div class="row q-gutter-sm q-mb-sm">
-                    <q-input
-                      filled
-                      :model-value="selectedLead.referred_by_type || 'Event'"
-                      label="Referral Type"
-                      readonly
-                      class="col"
-                    />
-                    <q-input
-                      filled
-                      :model-value="selectedLead.referred_by_id ?? 8"
-                      label="Referral ID"
-                      readonly
-                      class="col-4"
-                    />
-                  </div>
-                  <q-input
-                    filled
-                    :model-value="selectedLead.referred_by_note || selectedLead.eventName || ''"
-                    label="Referral Note"
-                    readonly
-                    class="q-mb-sm"
+                    @filter="(val, update) => update()"
                   />
                 </q-card-section>
               </q-card>
@@ -678,66 +646,20 @@
               </div>
               
               <!-- Event & Referral Information -->
-              <div class="text-subtitle1 text-weight-medium q-mb-md q-mt-lg">Event & Referral Information</div>
+              <div class="text-subtitle1 text-weight-medium q-mb-md q-mt-lg">Event</div>
               <q-select
                 filled
                 v-model="selectedLead.eventName"
                 :options="eventOptions"
-                label="Event (from server)"
+                use-input
+                fill-input
+                hide-selected
+                input-debounce="0"
+                label="Event Name"
+                hint="Select an existing event or type a custom name"
                 clearable
-                class="q-mb-sm"
-              />
-              <q-input
-                filled
-                v-model="selectedLead.eventName"
-                label="Custom Event Name"
-                hint="This is the event shown on the dashboard. Use the dropdown above or type your own value here."
                 class="q-mb-md"
-              />
-              <q-select
-                filled
-                v-model="selectedLead.eventName"
-                :options="eventOptions"
-                label="Event (from server)"
-                clearable
-                class="q-mb-sm"
-              />
-              <q-input
-                filled
-                v-model="selectedLead.eventName"
-                label="Custom Event Name"
-                hint="This is the event shown on the dashboard. Use the dropdown above or type your own value here."
-                class="q-mb-md"
-              />
-              <q-input
-                filled
-                :model-value="selectedLead.referredBy || selectedLead.eventName || ''"
-                label="Referred By"
-                readonly
-                class="q-mb-sm"
-              />
-              <div class="row q-gutter-sm q-mb-sm">
-                <q-input
-                  filled
-                  :model-value="selectedLead.referred_by_type || 'Event'"
-                  label="Referral Type"
-                  readonly
-                  class="col"
-                />
-                <q-input
-                  filled
-                  :model-value="selectedLead.referred_by_id ?? 8"
-                  label="Referral ID"
-                  readonly
-                  class="col-4"
-                />
-              </div>
-              <q-input
-                filled
-                :model-value="selectedLead.referred_by_note || selectedLead.eventName || ''"
-                label="Referral Note"
-                readonly
-                class="q-mb-md"
+                @filter="(val, update) => update()"
               />
               
               <!-- Sync Error (if any) -->
