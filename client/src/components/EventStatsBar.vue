@@ -85,8 +85,8 @@ watch(() => props.eventName, fetchStats);
 
 <style scoped>
 .stats-card {
-  background: linear-gradient(135deg, rgba(153,69,255,0.07) 0%, rgba(20,241,149,0.05) 100%);
-  border: 1px solid rgba(153,69,255,0.15);
+  background: linear-gradient(135deg, rgba(153,69,255,0.25) 0%, rgba(20,241,149,0.15) 100%);
+  border: 1px solid rgba(255,255,255,0.2);
   border-radius: 12px;
   padding: 10px 12px;
 }
@@ -103,8 +103,7 @@ watch(() => props.eventName, fetchStats);
   font-weight: 700;
   letter-spacing: 1.2px;
   text-transform: uppercase;
-  color: #9945FF;
-  opacity: 0.8;
+  color: rgba(255,255,255,0.8);
 }
 
 .stats-section { margin-bottom: 6px; }
@@ -115,7 +114,7 @@ watch(() => props.eventName, fetchStats);
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: rgba(0,0,0,0.35);
+  color: rgba(255,255,255,0.5);
   margin-bottom: 4px;
 }
 
@@ -146,14 +145,14 @@ watch(() => props.eventName, fetchStats);
   margin-top: 1px;
 }
 
-.stat-box--leads   { background: rgba(153,69,255,0.10); color: #7c3de0; }
-.stat-box--appts   { background: rgba(20,241,149,0.15); color: #0d9b5f; }
-.stat-box--entries { background: rgba(30,30,30,0.06);   color: #222; }
+.stat-box--leads   { background: rgba(153,69,255,0.35); color: #fff; }
+.stat-box--appts   { background: rgba(20,241,149,0.30); color: #fff; }
+.stat-box--entries { background: rgba(255,255,255,0.15); color: #fff; }
 .stat-box--entries .stat-box__num { font-size: 22px; }
 
 .stats-divider {
   height: 1px;
-  background: rgba(153,69,255,0.1);
+  background: rgba(255,255,255,0.15);
   margin: 8px 0;
 }
 
