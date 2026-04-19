@@ -1192,6 +1192,10 @@ async function batchApplyChanges() {
         if (divisionId !== null) {
           patch.divisionId = divisionId;
         }
+        // Normalize unset temp to 5 (warm) on every batch operation
+        if (!patch.tempRating) {
+          patch.tempRating = 5;
+        }
         await apiService.updateLead(id, patch);
         succeeded++;
       } catch {
