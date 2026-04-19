@@ -1,6 +1,6 @@
 <template>
   <q-page class="q-pa-md">
-    <div class="q-gutter-md">
+    <div>
       <q-card flat bordered class="form-card">
         <q-card-section>
           <div class="text-h4 text-primary text-center q-mb-lg">
