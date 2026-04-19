@@ -1,6 +1,6 @@
 {
   "name": "app",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "description": "An application to collect prospect information, set appointments, and sync with LEAP_CRM",
   "productName": "eventcollect",
   "author": "Peter Roto <peterdroto@gmail.com>",
