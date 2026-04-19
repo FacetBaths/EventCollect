@@ -11,7 +11,7 @@
           icon="menu"
           aria-label="Menu"
           @click="toggleLeftDrawer"
-          class="text-primary q-mr-sm"
+          class="text-white q-mr-sm"
         />
 
         <q-toolbar-title>
@@ -25,11 +25,11 @@
             />
             <div class="flex column" :class="$q.screen.lt.md ? 'items-center' : ''">
               <span
-                class="text-weight-medium text-primary"
+                class="text-weight-medium text-white"
                 :class="$q.screen.lt.md ? 'text-caption' : 'text-h6'"
                 >EventCollect</span
               >
-              <span class="text-caption version" v-if="$q.screen.gt.xs && $q.screen.gt.sm"
+              <span class="text-caption version text-primary" v-if="$q.screen.gt.xs && $q.screen.gt.sm"
                 >v{{ versionInfo.version }}</span
               >
             </div>
@@ -37,7 +37,7 @@
         </q-toolbar-title>
 
         <!-- Desktop nav buttons -->
-        <div v-if="$q.screen.gt.sm" class="desktop-nav q-mr-sm">
+        <!-- <div v-if="$q.screen.gt.sm" class="desktop-nav q-mr-sm">
           <q-btn
             v-for="link in navigationLinks"
             :key="link.title"
@@ -45,18 +45,18 @@
             flat
             :icon="link.icon"
             :label="link.title"
-            color="primary"
+            color="secondary"
             class="q-mr-xs"
             size="sm"
           >
             <q-tooltip>{{ link.caption }}</q-tooltip>
           </q-btn>
-        </div>
+        </div> -->
 
         <q-btn
           flat
           dense
-          color="primary"
+          color="white"
           icon="refresh"
           @click="resyncLeapData"
           :loading="resyncLoading"
@@ -68,9 +68,9 @@
       </q-toolbar>
 
       <!-- Row 2: active event -->
-      <div class="event-bar q-px-md q-py-xs">
-        <q-icon name="event" size="xs" color="white" class="q-mr-xs" style="opacity:.7" />
-        <span class="text-caption text-white" style="opacity:.9">{{ currentEvent || 'No event selected' }}</span>
+      <div class="no-glass event-bar q-px-md q-py-xs">
+        <q-icon name="event" size="xs" color="white" class="q-mr-xs" />
+        <span class="text-caption text-white">{{ currentEvent || 'No event selected' }}</span>
       </div>
     </q-header>
 
@@ -233,7 +233,7 @@ async function resyncLeapData() {
 <style scoped>
 .logo {
   height: 40px;
-  width: auto;
+  min-width: 100px;
   max-width: 120px;
 }
 .version {
@@ -263,7 +263,7 @@ async function resyncLeapData() {
 }
 
 .event-bar {
-  background: rgba(153, 69, 255, 0.15);
+  background: oklab(59.818000000000005% 0.12384 -0.22469 / 0.8);
   border-top: 1px solid rgba(153, 69, 255, 0.1);
   display: flex;
   justify-content: center;
