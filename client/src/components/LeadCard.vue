@@ -27,14 +27,7 @@
                     <q-icon name="edit" />
                   </q-item-section>
                   <q-item-section>Edit</q-item-section>
-                </q-item>
-                <q-item v-if="!isAppointmentSet" clickable @click="openSetAppointment">
-                  <q-item-section avatar>
-                    <q-icon name="event" />
-                  </q-item-section>
-                  <q-item-section>Set Appointment</q-item-section>
-                </q-item>
-                <q-item v-if="lead.syncStatus === 'error'" clickable @click="triggerResync">
+                </q-item>                <q-item v-if="lead.syncStatus === 'error'" clickable @click="triggerResync">
                   <q-item-section avatar>
                     <q-icon name="sync" />
                   </q-item-section>
@@ -71,17 +64,6 @@
           <q-avatar :icon="getTempIcon(lead.tempRating)" size="sm" />
           {{ lead.tempRating || 'N/A' }}/10
         </q-chip>
-
-        <q-chip v-if="lead.wantsAppointment && !isAppointmentSet" color="info" text-color="white" size="sm" dense>
-          <q-avatar icon="event_available" size="sm" />
-          Appt Requested
-        </q-chip>
-        
-        <q-chip v-if="isAppointmentSet" color="positive" text-color="white" size="sm" dense>
-          <q-avatar icon="event_note" size="sm" />
-          Scheduled
-        </q-chip>
-        
         <q-chip v-if="lead.notes" color="grey-6" text-color="white" size="sm" dense>
           <q-avatar icon="note" size="sm" />
           Notes
@@ -92,9 +74,6 @@
     <q-card-actions class="bg-grey-2 q-pa-sm">
       <q-btn flat dense color="primary" icon="edit" @click="$emit('edit', lead)" size="sm">
         <q-tooltip>Edit</q-tooltip>
-      </q-btn>
-      <q-btn v-if="!isAppointmentSet" flat dense color="secondary" icon="event" @click="$emit('set-appointment', lead)" size="sm">
-        <q-tooltip>Set Appointment</q-tooltip>
       </q-btn>
       <q-btn v-if="lead.syncStatus === 'error'" flat dense color="warning" icon="sync" @click="$emit('resync', lead._id)" size="sm">
         <q-tooltip>Resync</q-tooltip>
@@ -117,33 +96,12 @@ const props = defineProps({
     required: true,
   },
 });
-const emit = defineEmits(['edit', 'set-appointment', 'resync', 'delete']);
+const emit = defineEmits(['edit', 'resync', 'delete']);
 
 // Copy functionality
 const { copyLeadToClipboard } = useCopyLead();
 const copyLoading = ref(false);
 const actionMenuOpen = ref(false);
-
-// Computed property to check if appointment preference has been set
-const isAppointmentSet = computed(() => {
-  const { appointmentDetails, leapAppointmentId } = props.lead;
-  
-  // If synced to CRM with appointment ID, it's definitely set
-  if (leapAppointmentId) {
-    return true;
-  }
-  
-  // If appointment details have meaningful data, consider it set
-  if (appointmentDetails) {
-    return (
-      appointmentDetails.staffMemberId ||
-      appointmentDetails.preferredDate ||
-      appointmentDetails.preferredTime
-    );
-  }
-  
-  return false;
-});
 
 function getSyncStatusColor(status: string) {
   switch (status) {
@@ -209,10 +167,6 @@ function closeMenuThen(action: () => void) {
 
 function openEdit() {
   closeMenuThen(() => emit('edit', props.lead));
-}
-
-function openSetAppointment() {
-  closeMenuThen(() => emit('set-appointment', props.lead));
 }
 
 function triggerResync() {

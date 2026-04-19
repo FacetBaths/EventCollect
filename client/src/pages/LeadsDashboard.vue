@@ -231,8 +231,7 @@
               <LeadCard 
                 :lead="lead"
                 @edit="editLead"
-                @set-appointment="setAppointment"
-                @resync="resyncLead"
+                  @resync="resyncLead"
                 @delete="deleteLead"
               />
             </div>
@@ -294,11 +293,7 @@
               <div class="q-gutter-xs">
                 <q-btn flat icon="edit" @click="editLead(props.row)" color="primary" size="sm">
                   <q-tooltip>Edit Lead</q-tooltip>
-                </q-btn>
-                <q-btn flat icon="event" @click="setAppointment(props.row)" color="green" size="sm">
-                  <q-tooltip>Set Appointment</q-tooltip>
-                </q-btn>
-                <q-btn flat icon="sync" @click="resyncLead(props.row._id)" color="orange" size="sm" v-if="props.row.syncStatus === 'error'">
+                </q-btn>                <q-btn flat icon="sync" @click="resyncLead(props.row._id)" color="orange" size="sm" v-if="props.row.syncStatus === 'error'">
                   <q-tooltip>Resync to LEAP</q-tooltip>
                 </q-btn>
                 <q-btn flat icon="content_copy" @click="copyTableLead(props.row)" color="secondary" size="sm" :loading="copyingLeadIds.includes(props.row._id)">
@@ -844,24 +839,6 @@
       </q-card>
     </q-dialog>
     
-    <!-- Set Appointment Dialog -->
-    <q-dialog v-model="appointmentDialog" persistent>
-      <q-card style="min-width: 600px">
-        <q-card-section>
-          <div class="text-h6">Set Appointment</div>
-          <div class="text-subtitle2" v-if="selectedLead">For: {{ selectedLead.fullName }}</div>
-        </q-card-section>
-        
-        <q-card-section class="q-pt-none">
-          <AppointmentScheduler @appointment-scheduled="onAppointmentScheduled" />
-        </q-card-section>
-        
-        <q-card-actions align="right">
-          <q-btn flat label="Cancel" color="primary" @click="appointmentDialog = false" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
-    
     <!-- CSV Import Dialog -->
     <CsvImportDialog 
       v-model="showCsvImport" 
@@ -874,7 +851,6 @@
 import { ref, onMounted, computed } from 'vue';
 import { apiService } from '../services/api';
 import { Notify } from 'quasar';
-import AppointmentScheduler from '../components/AppointmentScheduler.vue';
 import LeadCard from '../components/LeadCard.vue';
 import CsvImportDialog from '../components/CsvImportDialog.vue';
 import { useEventStore } from '../stores/event-store';
@@ -931,7 +907,6 @@ const savingLead = ref(false);
 const resyncAfterSave = ref(false);
 const showAllEvents = ref(true); // Default to showing all events since we may not have an active event
 const editLeadDialog = ref(false);
-const appointmentDialog = ref(false);
 const showCsvImport = ref(false);
 const selectedLead = ref<Lead | null>(null);
 const eventStore = useEventStore();
@@ -943,13 +918,6 @@ const { salesRepOptions, divisionOptions, tradeOptions, workTypeOptions, loading
 // Copy functionality
 const { copyLeadToClipboard } = useCopyLead();
 const copyingLeadIds = ref<string[]>([]);
-
-// Appointment time slots
-const appointmentTimeSlots = [
-  '10:00 AM',
-  '2:00 PM', 
-  '5:00 PM'
-];
 
 // View mode and pagination
 const viewMode = ref('cards'); // 'cards' or 'table'
@@ -1285,11 +1253,6 @@ function editLead(lead: Lead) {
   editLeadDialog.value = true;
 }
 
-function setAppointment(lead: Lead) {
-  selectedLead.value = lead;
-  appointmentDialog.value = true;
-}
-
 async function saveLeadChanges() {
   if (!selectedLead.value) return;
   
@@ -1348,49 +1311,6 @@ async function saveLeadChanges() {
     });
   } finally {
     savingLead.value = false;
-  }
-}
-
-async function onAppointmentScheduled(appointmentData: any) {
-  if (!selectedLead.value?.leapCustomerId) {
-    Notify.create({
-      type: 'negative',
-      message: 'Customer not synced to LEAP. Cannot schedule appointment.',
-      timeout: 3000,
-    });
-    return;
-  }
-  
-  try {
-    // Create appointment using the customer ID
-    const appointmentPayload = {
-      customerId: selectedLead.value.leapCustomerId,
-      date: appointmentData.date,
-      time: appointmentData.time,
-      notes: appointmentData.notes || '',
-    };
-    
-    const response = await apiService.createAppointment(appointmentPayload);
-    
-    if (response.success) {
-      Notify.create({
-        type: 'positive',
-        message: 'Appointment scheduled successfully!',
-        timeout: 3000,
-      });
-      
-      appointmentDialog.value = false;
-      selectedLead.value = null;
-    } else {
-      throw new Error(response.error || 'Failed to schedule appointment');
-    }
-  } catch (error: any) {
-    console.error('Error scheduling appointment:', error);
-    Notify.create({
-      type: 'negative',
-      message: `Failed to schedule appointment: ${error.message}`,
-      timeout: 5000,
-    });
   }
 }
 
