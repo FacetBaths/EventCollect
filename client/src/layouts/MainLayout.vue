@@ -12,13 +12,21 @@
           class="text-primary q-mr-sm"
         />
 
-        <q-toolbar-title class="flex items-center no-wrap">
-          <div>
-            <img src="https://raw.githubusercontent.com/FacetBaths/EventCollect/main/client/public/assets/Logo_V2_Gradient7_CTC.png" alt="EventCollect Logo" class="logo q-mr-sm q-mr-md-md" loading="lazy" />
+        <q-toolbar-title>
+          <div :class="$q.screen.lt.md ? 'flex column items-center' : 'flex items-center no-wrap'">
+            <img
+              src="https://raw.githubusercontent.com/FacetBaths/EventCollect/main/client/public/assets/Logo_V2_Gradient7_CTC.png"
+              alt="EventCollect Logo"
+              class="logo"
+              :class="$q.screen.lt.md ? 'q-mb-xs' : 'q-mr-sm'"
+              loading="lazy"
+            />
+            <div class="flex column" :class="$q.screen.lt.md ? 'items-center' : ''">
+              <span class="text-weight-medium text-primary" :class="$q.screen.lt.md ? 'text-caption' : 'text-h6'">EventCollect</span>
+              <span class="text-caption text-grey-6" v-if="$q.screen.gt.xs && $q.screen.gt.sm">v{{ versionInfo.version }}</span>
+            </div>
           </div>
-          <div class="flex column">
-            <span class="text-h6 text-weight-medium text-primary">EventCollect</span>
-            <span class="text-caption text-grey-6" v-if="$q.screen.gt.xs">v{{ versionInfo.version }}</span>
+        </q-toolbar-title>
           </div>
         </q-toolbar-title>
 
