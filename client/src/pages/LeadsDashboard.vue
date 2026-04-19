@@ -968,10 +968,7 @@ onMounted(async () => {
 });
 
 function cloneLead<T>(lead: T): T {
-  if (typeof structuredClone === 'function') {
-    return structuredClone(lead);
-  }
-
+  // structuredClone cannot handle Vue reactive Proxy objects — use JSON roundtrip.
   return JSON.parse(JSON.stringify(lead)) as T;
 }
 
