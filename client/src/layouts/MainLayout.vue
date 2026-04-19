@@ -1,12 +1,11 @@
 <template>
   <q-layout view="lHh Lpr lFf">
     <q-header elevated class="bg-white text-dark">
+      <!-- Row 1: logo + nav + refresh -->
       <q-toolbar class="q-pa-sm q-pa-md-md">
         <q-btn
           v-if="$q.screen.lt.md"
-          flat
-          dense
-          round
+          flat dense round
           icon="menu"
           aria-label="Menu"
           @click="toggleLeftDrawer"
@@ -16,53 +15,48 @@
         <q-toolbar-title class="flex items-center no-wrap">
           <img src="https://raw.githubusercontent.com/FacetBaths/EventCollect/main/client/public/assets/Logo_V2_Gradient7_CTC.png" alt="EventCollect Logo" class="logo q-mr-sm q-mr-md-md" loading="lazy" />
           <div class="flex column">
-            <span class="text-h6 text-h5-md text-weight-medium text-primary" :class="$q.screen.lt.sm ? 'text-no-wrap' : ''">EventCollect</span>
+            <span class="text-h6 text-weight-medium text-primary">EventCollect</span>
             <span class="text-caption text-grey-6" v-if="$q.screen.gt.xs">v{{ versionInfo.version }}</span>
           </div>
         </q-toolbar-title>
 
-        <div class="flex items-center q-gutter-xs q-gutter-md-md">
-          <!-- Desktop Navigation -->
-          <div v-if="$q.screen.gt.sm" class="desktop-nav q-mr-lg">
-            <q-btn
-              v-for="link in navigationLinks"
-              :key="link.title"
-              :to="link.route"
-              flat
-              :icon="link.icon"
-              :label="link.title"
-              color="primary"
-              class="q-mr-sm"
-              size="sm"
-            >
-              <q-tooltip>{{ link.caption }}</q-tooltip>
-            </q-btn>
-          </div>
-
-          <!-- Mobile current event display -->
-          <div v-if="$q.screen.lt.md" class="text-caption text-accent mobile-event-display">
-            {{ currentEvent && currentEvent.length > 20 ? currentEvent.substring(0, 20) + '...' : currentEvent || 'No event' }}
-          </div>
-          
-          <!-- Desktop current event display -->
-          <div v-else class="text-caption text-accent">
-            Current Event: {{ currentEvent || 'No event selected' }}
-          </div>
-
+        <!-- Desktop nav buttons -->
+        <div v-if="$q.screen.gt.sm" class="desktop-nav q-mr-sm">
           <q-btn
+            v-for="link in navigationLinks"
+            :key="link.title"
+            :to="link.route"
             flat
-            dense
+            :icon="link.icon"
+            :label="link.title"
             color="primary"
-            icon="refresh"
-            @click="resyncLeapData"
-            :loading="resyncLoading"
-            :disable="resyncLoading"
-            :size="$q.screen.lt.sm ? 'xs' : 'sm'"
+            class="q-mr-xs"
+            size="sm"
           >
-            <q-tooltip>Resync LEAP Data</q-tooltip>
+            <q-tooltip>{{ link.caption }}</q-tooltip>
           </q-btn>
         </div>
+
+        <q-btn
+          flat dense
+          color="primary"
+          icon="refresh"
+          @click="resyncLeapData"
+          :loading="resyncLoading"
+          :disable="resyncLoading"
+          size="sm"
+        >
+          <q-tooltip>Resync LEAP Data</q-tooltip>
+        </q-btn>
       </q-toolbar>
+
+      <!-- Row 2: active event (full width, both mobile and desktop) -->
+      <div class="event-bar q-px-md q-pb-xs">
+        <q-icon name="event" size="xs" color="accent" class="q-mr-xs" />
+        <span class="text-caption text-accent">
+          {{ currentEvent || 'No event selected' }}
+        </span>
+      </div>
     </q-header>
 
     <q-drawer
@@ -239,9 +233,17 @@ async function resyncLeapData() {
   }
 }
 
+.event-bar {
+  background: rgba(153, 69, 255, 0.05);
+  border-top: 1px solid rgba(153, 69, 255, 0.1);
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+}
+
 .desktop-nav {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   align-items: center;
 }
 
