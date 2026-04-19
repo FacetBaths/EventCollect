@@ -1,0 +1,3 @@
+EventCollect TODO:
+- Division and BDC REp, not being set properly
+- Actually create appointments.

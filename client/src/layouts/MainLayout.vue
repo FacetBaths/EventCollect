@@ -13,7 +13,9 @@
         />
 
         <q-toolbar-title class="flex items-center no-wrap">
-          <img src="https://raw.githubusercontent.com/FacetBaths/EventCollect/main/client/public/assets/Logo_V2_Gradient7_CTC.png" alt="EventCollect Logo" class="logo q-mr-sm q-mr-md-md" loading="lazy" />
+          <div>
+            <img src="https://raw.githubusercontent.com/FacetBaths/EventCollect/main/client/public/assets/Logo_V2_Gradient7_CTC.png" alt="EventCollect Logo" class="logo q-mr-sm q-mr-md-md" loading="lazy" />
+          </div>
           <div class="flex column">
             <span class="text-h6 text-weight-medium text-primary">EventCollect</span>
             <span class="text-caption text-grey-6" v-if="$q.screen.gt.xs">v{{ versionInfo.version }}</span>
@@ -68,8 +70,8 @@
       :width="280"
     >
       <q-list>
-        <q-item-label header class="text-primary text-weight-bold q-pa-md"> 
-          <q-icon name="business" class="q-mr-sm" />EventCollect 
+        <q-item-label header class="text-primary text-weight-bold q-pa-md">
+          <q-icon name="business" class="q-mr-sm" />EventCollect
         </q-item-label>
 
         <q-separator class="q-mb-md" />
@@ -91,9 +93,9 @@
             <q-item-label caption class="text-body2">{{ link.caption }}</q-item-label>
           </q-item-section>
         </q-item>
-        
+
         <q-separator class="q-my-md" />
-        
+
         <!-- Mobile-specific actions -->
         <q-item clickable v-ripple @click="resyncLeapData" :disable="resyncLoading">
           <q-item-section avatar>
@@ -237,6 +239,7 @@ async function resyncLeapData() {
   background: rgba(153, 69, 255, 0.05);
   border-top: 1px solid rgba(153, 69, 255, 0.1);
   display: flex;
+  justify-content: center;
   align-items: center;
   min-height: 32px;
 }
