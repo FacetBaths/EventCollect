@@ -676,12 +676,14 @@ export class LeapService {
         message: "Customer retrieved successfully",
       };
     } catch (error: any) {
-      if (error.response?.status === 404) {
-        logger.info("Customer not found in LEAP CRM", { customerId });
+      // Treat 404 and 412 (Precondition Failed / stale ID) as "not found"
+      // so the caller falls back to search-by-email instead of crashing.
+      if (error.response?.status === 404 || error.response?.status === 412) {
+        logger.info("Customer not found or stale in LEAP CRM", { customerId, status: error.response?.status });
         return {
           success: false,
           data: null,
-          status: 404,
+          status: error.response?.status,
           message: "Customer not found",
         };
       }
@@ -714,12 +716,14 @@ export class LeapService {
         message: "Job retrieved successfully",
       };
     } catch (error: any) {
-      if (error.response?.status === 404) {
-        logger.info("Job not found in LEAP CRM", { jobId });
+      // Treat 404 and 412 (Precondition Failed / stale ID) as "not found"
+      // so the caller searches by customer then creates a new job instead of crashing.
+      if (error.response?.status === 404 || error.response?.status === 412) {
+        logger.info("Job not found or stale in LEAP CRM", { jobId, status: error.response?.status });
         return {
           success: false,
           data: null,
-          status: 404,
+          status: error.response?.status,
           message: "Job not found",
         };
       }
