@@ -1,6 +1,6 @@
 <template>
   <q-layout view="lHh Lpr lFf">
-    <q-header elevated class="glass text-dark">
+    <q-header elevated class="glass text-white">
       <!-- Row 1: logo + nav + refresh -->
       <q-toolbar class="q-pa-sm q-pa-md-md">
         <q-btn
@@ -69,8 +69,8 @@
 
       <!-- Row 2: active event -->
       <div class="event-bar q-px-md q-py-xs">
-        <q-icon name="event" size="xs" color="accent" class="q-mr-xs" />
-        <span class="text-caption text-accent">{{ currentEvent || 'No event selected' }}</span>
+        <q-icon name="event" size="xs" color="white" class="q-mr-xs" style="opacity:.7" />
+        <span class="text-caption text-white" style="opacity:.9">{{ currentEvent || 'No event selected' }}</span>
       </div>
     </q-header>
 
@@ -83,7 +83,7 @@
       :width="280"
     >
       <q-list>
-        <q-item-label header class="text-primary text-weight-bold q-pa-md">
+        <q-item-label header class="text-white text-weight-bold q-pa-md">
           <q-icon name="business" class="q-mr-sm" /> EventCollect
           <span class="text-caption version" v-if="$q.screen.lt.sm && $q.screen.lt.md"
             >v{{ versionInfo.version }}</span
@@ -105,7 +105,7 @@
             <q-icon :name="link.icon" color="primary" size="md" />
           </q-item-section>
           <q-item-section>
-            <q-item-label class="text-weight-medium text-body1">{{ link.title }}</q-item-label>
+            <q-item-label class="text-weight-medium text-body1 text-white">{{ link.title }}</q-item-label>
             <q-item-label caption class="text-body2 green">{{ link.caption }}</q-item-label>
           </q-item-section>
         </q-item>
@@ -125,8 +125,8 @@
             <q-icon name="refresh" color="primary" :class="resyncLoading ? 'rotating' : ''" />
           </q-item-section>
           <q-item-section>
-            <q-item-label class="text-weight-medium">Resync LEAP Data</q-item-label>
-            <q-item-label caption>Refresh CRM integration</q-item-label>
+            <q-item-label class="text-weight-medium text-white">Resync LEAP Data</q-item-label>
+            <q-item-label caption class="green">Refresh CRM integration</q-item-label>
           </q-item-section>
         </q-item>
       </q-list>
