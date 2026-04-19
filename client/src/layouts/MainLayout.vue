@@ -1,11 +1,13 @@
 <template>
   <q-layout view="lHh Lpr lFf">
-    <q-header elevated class="bg-white text-dark">
+    <q-header elevated class="glass text-dark">
       <!-- Row 1: logo + nav + refresh -->
       <q-toolbar class="q-pa-sm q-pa-md-md">
         <q-btn
           v-if="$q.screen.lt.md"
-          flat dense round
+          flat
+          dense
+          round
           icon="menu"
           aria-label="Menu"
           @click="toggleLeftDrawer"
@@ -22,8 +24,14 @@
               loading="lazy"
             />
             <div class="flex column" :class="$q.screen.lt.md ? 'items-center' : ''">
-              <span class="text-weight-medium text-primary" :class="$q.screen.lt.md ? 'text-caption' : 'text-h6'">EventCollect</span>
-              <span class="text-caption text-grey-6" v-if="$q.screen.gt.xs && $q.screen.gt.sm">v{{ versionInfo.version }}</span>
+              <span
+                class="text-weight-medium text-primary"
+                :class="$q.screen.lt.md ? 'text-caption' : 'text-h6'"
+                >EventCollect</span
+              >
+              <span class="text-caption version" v-if="$q.screen.gt.xs && $q.screen.gt.sm"
+                >v{{ versionInfo.version }}</span
+              >
             </div>
           </div>
         </q-toolbar-title>
@@ -46,7 +54,8 @@
         </div>
 
         <q-btn
-          flat dense
+          flat
+          dense
           color="primary"
           icon="refresh"
           @click="resyncLeapData"
@@ -70,17 +79,20 @@
     <q-drawer
       v-model="leftDrawerOpen"
       show-if-above
-      bordered
-      class="bg-grey-1"
+      elevated
+      class="glass"
       :breakpoint="768"
       :width="280"
     >
       <q-list>
         <q-item-label header class="text-primary text-weight-bold q-pa-md">
-          <q-icon name="business" class="q-mr-sm" />EventCollect
+          <q-icon name="business" class="q-mr-sm" /> EventCollect
+          <span class="text-caption version" v-if="$q.screen.lt.sm && $q.screen.lt.md"
+            >v{{ versionInfo.version }}</span
+          >
         </q-item-label>
 
-        <q-separator class="q-mb-md" />
+        <!-- <q-separator class="q-mb-md" /> -->
 
         <q-item
           v-for="link in navigationLinks"
@@ -96,7 +108,7 @@
           </q-item-section>
           <q-item-section>
             <q-item-label class="text-weight-medium text-body1">{{ link.title }}</q-item-label>
-            <q-item-label caption class="text-body2">{{ link.caption }}</q-item-label>
+            <q-item-label caption class="text-body2 green">{{ link.caption }}</q-item-label>
           </q-item-section>
         </q-item>
 
@@ -115,7 +127,7 @@
       </q-list>
     </q-drawer>
 
-    <q-page-container>
+    <q-page-container class="gradient-bg">
       <router-view />
     </q-page-container>
   </q-layout>
@@ -218,7 +230,10 @@ async function resyncLeapData() {
   width: auto;
   max-width: 120px;
 }
-
+.version {
+  color: #14f195;
+  font-weight: bold;
+}
 @media (max-width: 768px) {
   .logo {
     height: 32px;
@@ -242,7 +257,7 @@ async function resyncLeapData() {
 }
 
 .event-bar {
-  background: rgba(153, 69, 255, 0.05);
+  background: rgba(153, 69, 255, 0.15);
   border-top: 1px solid rgba(153, 69, 255, 0.1);
   display: flex;
   justify-content: center;

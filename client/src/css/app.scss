@@ -1,13 +1,50 @@
-@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&display=swap');
+// @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Tomorrow:wght@400;500;600;700&display=swap');
 
 // app global css in SCSS form
+.gradient-bg {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #9945ff, #ffffff, #14f195);
+  background-size: 400% 400%;
+  animation: gradientAnimation 15s ease infinite;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.5);
+  // border-radius: 16px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
 
 // iPad-specific global styles
 body {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Tomorrow', sans-serif;
   background-color: #f7f7f8;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #9945ff, #ffffff, #14f195);
+  background-size: 400% 400%;
+  animation: gradientAnimation 15s ease infinite;
+}
+@keyframes gradientAnimation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
+.q-drawer {
+  background-color: transparent;
+}
+.green {
+  color: #14f195;
+}
 header {
   padding: 16px;
   background-color: #fff;
