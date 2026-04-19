@@ -65,6 +65,8 @@
         <div class="text-weight-medium text-purple">
           {{ selectedLeadIds.size }} lead{{ selectedLeadIds.size === 1 ? '' : 's' }} selected
         </div>
+
+        <!-- Event Name -->
         <q-select
           v-model="batchEventName"
           :options="eventOptions"
@@ -72,22 +74,55 @@
           fill-input
           hide-selected
           input-debounce="0"
-          label="Set Event Name"
+          label="Event Name"
           clearable
           dense
           outlined
-          style="min-width: 220px"
+          style="min-width: 200px"
           @filter="(val, update) => update()"
         />
+
+        <!-- Temperature -->
+        <div class="row items-center q-gutter-sm" style="min-width: 180px">
+          <div class="text-caption text-grey-7 col-auto">Temp:</div>
+          <q-slider
+            v-model="batchTempRating"
+            :min="1"
+            :max="10"
+            :step="1"
+            snap
+            :markers="true"
+            :color="batchTempRating ? getTempColor(batchTempRating) : 'grey-4'"
+            track-color="grey-3"
+            class="col"
+            style="min-width: 120px"
+          />
+          <div
+            class="text-caption text-weight-bold col-auto"
+            :class="batchTempRating ? `text-${getTempColor(batchTempRating)}` : 'text-grey-5'"
+            style="width: 32px"
+          >
+            {{ batchTempRating ?? '–' }}/10
+          </div>
+          <q-btn
+            v-if="batchTempRating"
+            flat round dense
+            icon="close"
+            size="xs"
+            color="grey"
+            @click="batchTempRating = null"
+          />
+        </div>
+
         <q-btn
           label="Apply to Selected"
           color="purple"
           unelevated
           :loading="batchUpdating"
-          :disable="!batchEventName"
-          @click="batchUpdateEvent"
+          :disable="!batchEventName && !batchTempRating"
+          @click="batchApplyChanges"
         />
-        <q-btn flat label="Clear Selection" color="grey" @click="selectedLeadIds.clear(); selectedLeadIds = new Set()" />
+        <q-btn flat label="Clear Selection" color="grey" @click="selectedLeadIds.value = new Set()" />
       </div>
     </q-banner>
 
@@ -873,6 +908,7 @@ const itemsPerPage = 12;
 const batchMode = ref(false);
 let selectedLeadIds = ref(new Set<string>());
 const batchEventName = ref('');
+const batchTempRating = ref<number | null>(null);
 const batchUpdating = ref(false);
 const tableSelectedLeads = ref<Lead[]>([]);
 
@@ -1044,6 +1080,7 @@ function toggleBatchMode() {
   selectedLeadIds.value = new Set();
   tableSelectedLeads.value = [];
   batchEventName.value = '';
+  batchTempRating.value = null;
 }
 
 function toggleLeadSelection(id: string) {
@@ -1062,15 +1099,16 @@ function selectAllPage() {
   selectedLeadIds.value = next;
 }
 
-async function batchUpdateEvent() {
+async function batchApplyChanges() {
   const ids = viewMode.value === 'table'
     ? tableSelectedLeads.value.map(l => l._id)
     : [...selectedLeadIds.value];
 
-  if (!ids.length || !batchEventName.value) return;
+  if (!ids.length || (!batchEventName.value && !batchTempRating.value)) return;
 
   batchUpdating.value = true;
-  const eventName = batchEventName.value.trim();
+  const eventName = batchEventName.value?.trim() || null;
+  const tempRating = batchTempRating.value;
   let succeeded = 0;
   let failed = 0;
 
@@ -1079,14 +1117,18 @@ async function batchUpdateEvent() {
       try {
         const lead = allLeads.value.find(l => l._id === id);
         if (!lead) return;
-        await apiService.updateLead(id, {
-          ...JSON.parse(JSON.stringify(lead)),
-          eventName,
-          referredBy: eventName,
-          referred_by_type: 'Event',
-          referred_by_id: 8,
-          referred_by_note: eventName,
-        });
+        const patch: Record<string, any> = JSON.parse(JSON.stringify(lead));
+        if (eventName) {
+          patch.eventName = eventName;
+          patch.referredBy = eventName;
+          patch.referred_by_type = 'Event';
+          patch.referred_by_id = 8;
+          patch.referred_by_note = eventName;
+        }
+        if (tempRating !== null) {
+          patch.tempRating = tempRating;
+        }
+        await apiService.updateLead(id, patch);
         succeeded++;
       } catch {
         failed++;
@@ -1096,10 +1138,15 @@ async function batchUpdateEvent() {
 
   batchUpdating.value = false;
 
+  const changes = [
+    eventName ? `event → "${eventName}"` : null,
+    tempRating !== null ? `temp → ${tempRating}/10` : null,
+  ].filter(Boolean).join(', ');
+
   Notify.create({
     type: failed === 0 ? 'positive' : 'warning',
     message: failed === 0
-      ? `Updated ${succeeded} lead${succeeded === 1 ? '' : 's'} to "${eventName}"`
+      ? `Updated ${succeeded} lead${succeeded === 1 ? '' : 's'}: ${changes}`
       : `${succeeded} updated, ${failed} failed`,
     timeout: 4000,
   });
@@ -1109,6 +1156,7 @@ async function batchUpdateEvent() {
   selectedLeadIds.value = new Set();
   tableSelectedLeads.value = [];
   batchEventName.value = '';
+  batchTempRating.value = null;
 }
 
 function editLead(lead: Lead) {
