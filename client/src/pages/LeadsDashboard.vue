@@ -32,6 +32,13 @@
       >  
         <q-tooltip>Import Facebook leads from CSV file</q-tooltip>
       </q-btn>
+      <q-btn
+        :label="batchMode ? 'Cancel Select' : 'Select'"
+        :color="batchMode ? 'grey' : 'purple'"
+        icon="checklist"
+        @click="toggleBatchMode"
+        :outline="!batchMode"
+      />
       <q-space />
       <div class="text-caption">
         Showing {{ filteredLeads.length }} of {{ allLeads.length }} leads
@@ -44,6 +51,46 @@
       </div>
     </div>
     
+    <!-- Batch Action Bar -->
+    <q-banner
+      v-if="batchMode && selectedLeadIds.size > 0"
+      rounded
+      class="bg-purple-1 q-mb-md"
+      style="border: 1px solid #9c27b0"
+    >
+      <template v-slot:avatar>
+        <q-icon name="checklist" color="purple" />
+      </template>
+      <div class="row items-center q-gutter-md flex-wrap">
+        <div class="text-weight-medium text-purple">
+          {{ selectedLeadIds.size }} lead{{ selectedLeadIds.size === 1 ? '' : 's' }} selected
+        </div>
+        <q-select
+          v-model="batchEventName"
+          :options="eventOptions"
+          use-input
+          fill-input
+          hide-selected
+          input-debounce="0"
+          label="Set Event Name"
+          clearable
+          dense
+          outlined
+          style="min-width: 220px"
+          @filter="(val, update) => update()"
+        />
+        <q-btn
+          label="Apply to Selected"
+          color="purple"
+          unelevated
+          :loading="batchUpdating"
+          :disable="!batchEventName"
+          @click="batchUpdateEvent"
+        />
+        <q-btn flat label="Clear Selection" color="grey" @click="selectedLeadIds.clear(); selectedLeadIds = new Set()" />
+      </div>
+    </q-banner>
+
     <!-- No Leads Message -->
     <div v-if="!loading && allLeads.length === 0" class="text-center q-pa-xl">
       <q-icon name="people" size="4rem" color="grey-5" />
@@ -66,6 +113,10 @@
     <div class="q-mb-md">
       <!-- Mobile View Toggle -->
       <div class="row items-center q-mb-md">
+        <div v-if="batchMode" class="q-gutter-sm">
+          <q-btn flat dense label="Select All" color="purple" icon="select_all" @click="selectAllPage" />
+          <q-btn flat dense label="Deselect All" color="grey" icon="deselect" @click="selectedLeadIds = new Set()" />
+        </div>
         <q-space />
         <q-btn-toggle
           v-model="viewMode"
@@ -100,14 +151,32 @@
             v-for="lead in paginatedLeads" 
             :key="lead._id" 
             class="col-12 col-sm-6 col-md-4"
+            style="position: relative"
           >
-            <LeadCard 
-              :lead="lead"
-              @edit="editLead"
-              @set-appointment="setAppointment"
-              @resync="resyncLead"
-              @delete="deleteLead"
-            />
+            <!-- Batch selection checkbox overlay -->
+            <div
+              v-if="batchMode"
+              style="position: absolute; top: 8px; left: 20px; z-index: 10"
+              @click.stop
+            >
+              <q-checkbox
+                :model-value="selectedLeadIds.has(lead._id)"
+                color="purple"
+                @update:model-value="toggleLeadSelection(lead._id)"
+              />
+            </div>
+            <div
+              :style="batchMode && selectedLeadIds.has(lead._id) ? 'outline: 2px solid #9c27b0; border-radius: 8px' : ''"
+              @click="batchMode ? toggleLeadSelection(lead._id) : null"
+            >
+              <LeadCard 
+                :lead="lead"
+                @edit="editLead"
+                @set-appointment="setAppointment"
+                @resync="resyncLead"
+                @delete="deleteLead"
+              />
+            </div>
           </div>
         </div>
         
@@ -132,6 +201,8 @@
           flat
           bordered
           :pagination="{ rowsPerPage: 20 }"
+          :selection="batchMode ? 'multiple' : 'none'"
+          v-model:selected="tableSelectedLeads"
         >
           <!-- Custom cell rendering for status and temp -->
           <template v-slot:body-cell-syncStatus="props">
@@ -798,6 +869,13 @@ const viewMode = ref('cards'); // 'cards' or 'table'
 const currentPage = ref(1);
 const itemsPerPage = 12;
 
+// Batch selection
+const batchMode = ref(false);
+let selectedLeadIds = ref(new Set<string>());
+const batchEventName = ref('');
+const batchUpdating = ref(false);
+const tableSelectedLeads = ref<Lead[]>([]);
+
 const columns = [
   {
     name: 'fullName',
@@ -960,12 +1038,85 @@ function getTempColor(rating: number): string {
   return 'grey';
 }
 
+// Batch select helpers
+function toggleBatchMode() {
+  batchMode.value = !batchMode.value;
+  selectedLeadIds.value = new Set();
+  tableSelectedLeads.value = [];
+  batchEventName.value = '';
+}
+
+function toggleLeadSelection(id: string) {
+  const next = new Set(selectedLeadIds.value);
+  if (next.has(id)) {
+    next.delete(id);
+  } else {
+    next.add(id);
+  }
+  selectedLeadIds.value = next;
+}
+
+function selectAllPage() {
+  const next = new Set(selectedLeadIds.value);
+  paginatedLeads.value.forEach(l => next.add(l._id));
+  selectedLeadIds.value = next;
+}
+
+async function batchUpdateEvent() {
+  const ids = viewMode.value === 'table'
+    ? tableSelectedLeads.value.map(l => l._id)
+    : [...selectedLeadIds.value];
+
+  if (!ids.length || !batchEventName.value) return;
+
+  batchUpdating.value = true;
+  const eventName = batchEventName.value.trim();
+  let succeeded = 0;
+  let failed = 0;
+
+  await Promise.allSettled(
+    ids.map(async id => {
+      try {
+        const lead = allLeads.value.find(l => l._id === id);
+        if (!lead) return;
+        await apiService.updateLead(id, {
+          ...JSON.parse(JSON.stringify(lead)),
+          eventName,
+          referredBy: eventName,
+          referred_by_type: 'Event',
+          referred_by_id: 8,
+          referred_by_note: eventName,
+        });
+        succeeded++;
+      } catch {
+        failed++;
+      }
+    })
+  );
+
+  batchUpdating.value = false;
+
+  Notify.create({
+    type: failed === 0 ? 'positive' : 'warning',
+    message: failed === 0
+      ? `Updated ${succeeded} lead${succeeded === 1 ? '' : 's'} to "${eventName}"`
+      : `${succeeded} updated, ${failed} failed`,
+    timeout: 4000,
+  });
+
+  // Refresh and clear
+  await fetchLeads();
+  selectedLeadIds.value = new Set();
+  tableSelectedLeads.value = [];
+  batchEventName.value = '';
+}
+
 function editLead(lead: Lead) {
   selectedLead.value = cloneLead(lead);
   
   // Initialize fields if not set
   if (!selectedLead.value.tempRating) {
-    selectedLead.value.tempRating = 1;
+    selectedLead.value.tempRating = 5; // Default to 5 (warm) when previously unset
   }
   if (!selectedLead.value.address) {
     selectedLead.value.address = {
