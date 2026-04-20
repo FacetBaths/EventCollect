@@ -1151,7 +1151,7 @@ export class LeapService {
           first_name: firstName,
           last_name: lastName,
           email: leadData.email,
-          rep_id: leadData.salesRepId || leadData.callCenterRepId, // Preserve customer rep assignment
+          rep_id: leadData.salesRepId || leadData.callCenterRepId || 88443, // Always send a rep — omitting can clear existing assignment in LEAP
           phones: [
             {
               number: leadData.phone.replace(/\D/g, '').slice(-10),
@@ -1666,7 +1666,8 @@ export class LeapService {
       if (prospectData.company_name) {
         formData.append('company_name', prospectData.company_name);
       }
-      if (prospectData.rep_id) {
+      // Always send rep_id — use strict check to allow valid IDs (>0), never skip the field
+      if (prospectData.rep_id != null && prospectData.rep_id !== 0) {
         formData.append('rep_id', prospectData.rep_id.toString());
       }
       if (prospectData.referred_by_type) {
@@ -1758,8 +1759,11 @@ export class LeapService {
       const address = prospectData.address;
       if (address.place_id) formData.append('address[place_id]', address.place_id);
       if (address.company_name) formData.append('address[company_name]', address.company_name);
+      // Send street address under both field names — LEAP accepts either
       formData.append('address[address]', address.address);
-      if ((address as any).city) formData.append('address[city]', (address as any).city); // Add explicit city field
+      formData.append('address[address_line_1]', address.address);
+      // Always send city — conditional check was silently dropping it for empty strings
+      formData.append('address[city]', (address as any).city || '');
       if (address.country) formData.append('address[country]', address.country);
       formData.append('address[zip]', address.zip);
       if (address.country_id) formData.append('address[country_id]', address.country_id.toString());

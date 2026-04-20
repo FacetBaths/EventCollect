@@ -2,10 +2,28 @@ import { ref, computed, onMounted } from 'vue';
 import { apiService } from '../services/api';
 import type { LeapTrade, LeapDivision, LeapSalesRep } from '../types/temp-types';
 
+const CACHE_KEY = 'eventcollect:leapData';
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+function readCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) return null;
+    return data;
+  } catch { return null; }
+}
+
+function writeCache(data: { trades: LeapTrade[]; divisions: LeapDivision[]; salesReps: LeapSalesRep[] }) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch { /* ignore */ }
+}
+
 export function useLeapData() {
-  const trades = ref<LeapTrade[]>([]);
-  const divisions = ref<LeapDivision[]>([]);
-  const salesReps = ref<LeapSalesRep[]>([]);
+  const cached = readCache();
+  const trades = ref<LeapTrade[]>(cached?.trades ?? []);
+  const divisions = ref<LeapDivision[]>(cached?.divisions ?? []);
+  const salesReps = ref<LeapSalesRep[]>(cached?.salesReps ?? []);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -166,6 +184,10 @@ export function useLeapData() {
   // Load trades, divisions, and sales reps
   const loadLeapData = async () => {
     await Promise.all([loadTrades(), loadDivisions(), loadSalesReps()]);
+    // Persist to cache so TradeSelector has real options even if LEAP is briefly unavailable
+    if (!error.value) {
+      writeCache({ trades: trades.value, divisions: divisions.value, salesReps: salesReps.value });
+    }
   };
 
   // Auto-load on mount

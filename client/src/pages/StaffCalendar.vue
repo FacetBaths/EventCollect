@@ -161,8 +161,9 @@ const appointmentWeeks = computed(() => {
     for (let dayNum = 0; dayNum < 6; dayNum++) {
       const currentDate = new Date(weekStart);
       currentDate.setDate(currentDate.getDate() + dayNum);
-      
-      const currentDateStr = currentDate.toISOString().split('T')[0] as string;
+
+      // Use local date parts to avoid UTC timezone shift (toISOString gives Sunday for CDT Monday midnight)
+      const currentDateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}-${String(currentDate.getDate()).padStart(2,'0')}`;
       const daySchedule: DaySchedule = {
         date: currentDateStr,
         timeSlots: timeSlots.map(time => ({
@@ -174,10 +175,11 @@ const appointmentWeeks = computed(() => {
       days.push(daySchedule);
     }
     
+    const toLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     weeks.push({
       weekNumber: weekNum + 1,
-      startDate: weekStart.toISOString().split('T')[0] as string,
-      endDate: weekEnd.toISOString().split('T')[0] as string,
+      startDate: toLocal(weekStart),
+      endDate: toLocal(weekEnd),
       days
     });
   }
