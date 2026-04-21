@@ -51,7 +51,7 @@
     <div class="row items-center q-mb-md q-gutter-sm flex-wrap">
       <q-select
         v-model="filterEvent"
-        :options="eventOptions"
+        :options="filterEventOptions"
         label="Event"
         clearable dense outlined
         style="min-width: 170px; max-width: 220px"
@@ -971,6 +971,9 @@ const showCsvImport = ref(false);
 const selectedLead = ref<Lead | null>(null);
 const eventStore = useEventStore();
 const eventOptions = ref<string[]>([]);
+// Sentinel value used only by the filter dropdown — not for batch updates
+const NO_EVENT_SENTINEL = '(No Event)';
+const filterEventOptions = computed(() => [NO_EVENT_SENTINEL, ...eventOptions.value]);
 
 // LEAP CRM data (names for dropdowns)
 const { salesRepOptions, divisionOptions, tradeOptions, workTypeOptions, loading: leapLoading } = useLeapData();
@@ -1075,7 +1078,10 @@ const filteredLeads = computed(() => {
   }
 
   // Dashboard event filter
-  if (filterEvent.value) {
+  if (filterEvent.value === NO_EVENT_SENTINEL) {
+    // Show leads with no event attached (null, undefined, or blank eventName)
+    result = result.filter(l => !l.eventName?.trim());
+  } else if (filterEvent.value) {
     result = result.filter(l => l.eventName === filterEvent.value);
   }
 

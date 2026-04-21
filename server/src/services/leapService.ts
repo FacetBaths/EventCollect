@@ -59,14 +59,15 @@ interface LeapJob {
 
 interface LeapAppointment {
   id?: string | number;
-  job_id: string | number;
-  date: string;
-  start_time: string;
-  end_time?: string;
-  notes?: string;
-  status: "scheduled" | "confirmed" | "cancelled" | "completed";
-  created_at?: string;
-  updated_at?: string;
+  title?: string;
+  description?: string;
+  start_date_time: string;   // "YYYY-MM-DD HH:MM:SS"
+  end_date_time?: string;    // "YYYY-MM-DD HH:MM:SS"
+  customer_id?: string | number;
+  user_id?: string | number;          // Assigns to a staff member → appears on their calendar
+  attendees_ids?: (string | number)[]; // Additional attendees
+  location?: string;
+  full_day?: 0 | 1;
 }
 
 interface LeapApiResponse<T> {
@@ -297,36 +298,37 @@ export class LeapService {
   }
 
   /**
-   * Create a new appointment in LEAP CRM
-   * NOTE: Requires job_id to associate appointment with a job
+   * Create a new appointment in LEAP CRM.
+   * Fields per the LEAP Appointment API:
+   *   start_date_time, end_date_time  – "YYYY-MM-DD HH:MM:SS"
+   *   customer_id                     – associates with the customer record
+   *   user_id / attendees_ids         – assigns to staff → appears on their calendar
+   *   title, description              – display info
    */
   async createAppointment(
-    appointmentData: Partial<LeapAppointment> & { job_id?: string | number },
+    appointmentData: Partial<LeapAppointment>,
   ): Promise<LeapApiResponse<any>> {
     try {
       logger.info("Creating appointment in LEAP CRM", { appointmentData });
-      
-      // Validate required fields for LEAP appointment
-      if (!appointmentData.job_id) {
-        throw new Error("job_id is required for LEAP appointment creation");
+
+      if (!appointmentData.start_date_time) {
+        throw new Error("start_date_time is required for LEAP appointment creation");
       }
-      if (!appointmentData.date) {
-        throw new Error("date is required for LEAP appointment creation");
+      if (!appointmentData.customer_id) {
+        throw new Error("customer_id is required for LEAP appointment creation");
       }
-      if (!appointmentData.start_time) {
-        throw new Error("start_time is required for LEAP appointment creation");
-      }
-      
+
       const response: AxiosResponse = await this.apiClient.post(
         "/appointments",
         appointmentData,
       );
-      
+
       logger.info("Appointment created successfully in LEAP CRM", {
         appointmentId: response.data.data?.id,
-        jobId: appointmentData.job_id
+        customerId: appointmentData.customer_id,
+        userId: appointmentData.user_id,
       });
-      
+
       return {
         success: true,
         data: response.data.data || response.data,

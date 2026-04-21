@@ -718,59 +718,69 @@ router.post("/", async (req, res) => {
           newLead.leapAppointmentId = appointmentData.id.toString();
         }
         
-        // Create appointment in LEAP if lead has appointment details and we have a job ID
-        if (newLead.wantsAppointment && newLead.appointmentDetails && jobId && appointmentRecord) {
+        // Create appointment in LEAP if lead has a preferred date and we have a customer ID.
+        // This is a follow-up call — we need the LEAP customer_id (from createProspect above)
+        // so it must happen after syncLead resolves. No dependency on local appointmentRecord.
+        if (newLead.wantsAppointment && newLead.appointmentDetails?.preferredDate && customerId) {
           try {
             logger.info("Creating appointment in LEAP CRM", {
               leadId: newLead._id,
-              jobId,
+              customerId,
               appointmentDate: newLead.appointmentDetails.preferredDate,
               appointmentTime: newLead.appointmentDetails.preferredTime
             });
-            
-            // Convert timeSlot format from "10:00 AM" to LEAP format
-            const convertToLeapTime = (timeSlot: string): string => {
-              // LEAP typically expects 24-hour format like "10:00" or "14:00"
-              const [time, period] = timeSlot.split(' ');
-              const [hours, minutes] = time.split(':');
-              let hour24 = parseInt(hours);
-              
-              if (period === 'PM' && hour24 !== 12) {
-                hour24 += 12;
-              } else if (period === 'AM' && hour24 === 12) {
-                hour24 = 0;
-              }
-              
-              return `${hour24.toString().padStart(2, '0')}:${minutes}`;
+
+            // Build "YYYY-MM-DD HH:MM:SS" from preferredDate (YYYY-MM-DD) + preferredTime ("10:00 AM")
+            const buildLeapDateTime = (date: string, timeSlot: string): string => {
+              const [time, period] = timeSlot.trim().split(' ');
+              const [hoursStr, minutesStr] = time.split(':');
+              let hour24 = parseInt(hoursStr, 10);
+              if (period?.toUpperCase() === 'PM' && hour24 !== 12) hour24 += 12;
+              else if (period?.toUpperCase() === 'AM' && hour24 === 12) hour24 = 0;
+              return `${date} ${hour24.toString().padStart(2, '0')}:${minutesStr}:00`;
             };
-            
+
+            const startDT = buildLeapDateTime(
+              newLead.appointmentDetails.preferredDate,
+              newLead.appointmentDetails.preferredTime || '10:00 AM'
+            );
+            // End = start + 2 hours
+            const endDate = new Date(startDT.replace(' ', 'T'));
+            endDate.setHours(endDate.getHours() + 2);
+            const endDT = endDate.toISOString().slice(0, 19).replace('T', ' ');
+
+            // user_id drives which staff member's calendar this appears on
+            const assignedUserId = newLead.salesRepId || newLead.callCenterRepId || undefined;
+
             const leapAppointmentData = {
-              job_id: jobId,
-              date: newLead.appointmentDetails.preferredDate,
-              start_time: convertToLeapTime(newLead.appointmentDetails.preferredTime),
-              end_time: convertToLeapTime(newLead.appointmentDetails.preferredTime), // Same as start for now
-              notes: newLead.appointmentDetails.notes || `Appointment for ${newLead.fullName}`,
-              status: "scheduled"
+              title: `Estimate - ${newLead.fullName}`,
+              description: newLead.appointmentDetails.notes
+                || `Appointment request from ${newLead.eventName || 'event'}`,
+              start_date_time: startDT,
+              end_date_time: endDT,
+              customer_id: customerId,
+              ...(assignedUserId ? { user_id: assignedUserId, attendees_ids: [assignedUserId] } : {}),
             };
-            
+
             const leapAppointmentResult = await leapService.createAppointment(leapAppointmentData);
-            
+
             if (leapAppointmentResult.success && leapAppointmentResult.data?.id) {
               newLead.leapAppointmentId = leapAppointmentResult.data.id.toString();
               logger.info("LEAP appointment created successfully", {
                 leadId: newLead._id,
                 leapAppointmentId: newLead.leapAppointmentId,
-                jobId
+                customerId,
+                userId: assignedUserId
               });
             }
           } catch (appointmentError: any) {
             logger.error("Failed to create LEAP appointment", {
               leadId: newLead._id,
-              jobId,
+              customerId,
               error: appointmentError.message,
               stack: appointmentError.stack
             });
-            // Don't fail the whole process if LEAP appointment creation fails
+            // Non-fatal — lead is already saved and synced; appointment can be added manually
           }
         }
         
