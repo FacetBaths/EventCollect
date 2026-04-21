@@ -1,6 +1,9 @@
 # Use Node.js 20 (compatible with all dependencies)
 FROM node:20-alpine
 
+# curl is needed for the health check probe
+RUN apk add --no-cache curl
+
 WORKDIR /app
 
 # Copy only server files to avoid workspace issues
@@ -8,20 +11,19 @@ COPY server/package*.json ./
 COPY server/ ./
 
 # Install all dependencies (including dev deps for build)
-RUN yarn install
+RUN npm ci
 
 # Build the application
-RUN yarn build
+RUN npm run build
 
-# Remove dev dependencies for production
-RUN yarn install --production
+# Remove dev dependencies for a leaner production image
+RUN npm prune --production
 
-# Expose port
+# Expose the default port (Railway overrides via PORT env var)
 EXPOSE 3001
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:3001/api/health || exit 1
+# Railway manages health checks via railway.toml (healthcheckPath = "/api/health")
+# No Docker-level HEALTHCHECK needed — Railway's own probe handles this.
 
 # Start the application
 CMD ["node", "dist/index.js"]
