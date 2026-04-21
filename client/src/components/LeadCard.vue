@@ -1,10 +1,10 @@
 
 <template>
   <q-card
-    class="lead-card q-mb-md"
+    class="lead-card q-mb-md lead-card--clickable"
     :class="{ 'lead-card--leap': leapUrl }"
     flat bordered
-    @click="openInLeap"
+    @click="onCardClick"
   >
     <q-card-section>
       <div class="row items-start no-wrap">
@@ -35,15 +35,14 @@
             <span class="text-caption text-weight-bold">{{ repInitials }}</span>
             <q-tooltip>{{ repName }}</q-tooltip>
           </q-avatar>
-          <!-- LEAP deep-link indicator: visible when the lead is synced -->
+          <!-- Action indicator: open in JobProgress if synced, resync if not -->
           <q-icon
-            v-if="leapUrl"
-            name="open_in_new"
+            :name="leapUrl ? 'open_in_new' : 'cloud_sync'"
             size="14px"
-            color="purple-4"
+            :color="leapUrl ? 'purple-4' : 'orange-4'"
             class="leap-link-icon"
           >
-            <q-tooltip>Open in JobProgress</q-tooltip>
+            <q-tooltip>{{ leapUrl ? 'Open in JobProgress' : 'Click to sync to LEAP' }}</q-tooltip>
           </q-icon>
           <q-btn flat round icon="more_vert" size="sm" @click.stop>
             <q-menu v-model="actionMenuOpen">
@@ -140,9 +139,12 @@ const leapUrl = computed(() => {
   return `https://www.jobprogress.com/app/#/customer-jobs/${cid}/job/${jid}/overview`;
 });
 
-function openInLeap() {
+function onCardClick() {
   if (leapUrl.value) {
     window.open(leapUrl.value, '_blank', 'noopener,noreferrer');
+  } else {
+    // Lead not yet in LEAP or sync failed — trigger a fresh sync attempt
+    emit('resync', props.lead._id);
   }
 }
 
@@ -291,13 +293,20 @@ async function copyLead() {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.lead-card--leap {
+.lead-card--clickable {
   cursor: pointer;
 }
 
+/* Synced leads with a JP link: purple hover */
 .lead-card--leap:hover {
   box-shadow: 0 4px 16px rgba(103, 58, 183, 0.18);
   border-color: rgba(103, 58, 183, 0.35) !important;
+}
+
+/* Unsynced leads: orange hint to match the sync icon */
+.lead-card--clickable:not(.lead-card--leap):hover {
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.15);
+  border-color: rgba(255, 152, 0, 0.3) !important;
 }
 
 .leap-link-icon {

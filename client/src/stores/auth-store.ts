@@ -17,14 +17,17 @@ const USER_KEY = 'ec:user';
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem(TOKEN_KEY));
-  const user = ref<AuthUser | null>(() => {
+  // IMPORTANT: ref() does NOT call factory functions — the function would be stored
+  // as the ref value itself (truthy but not an AuthUser), causing a ghost-auth state
+  // after page refresh. Use an IIFE so ref() receives the actual value.
+  const user = ref<AuthUser | null>((() => {
     try {
       const raw = localStorage.getItem(USER_KEY);
-      return raw ? JSON.parse(raw) : null;
+      return raw ? (JSON.parse(raw) as AuthUser) : null;
     } catch {
       return null;
     }
-  });
+  })());
 
   const isAuthenticated = computed(() => !!token.value && !!user.value);
   const isAdmin = computed(() => user.value?.role === 'admin');

@@ -304,10 +304,45 @@
           :pagination="{ rowsPerPage: 20 }"
           :selection="batchMode ? 'multiple' : 'none'"
           v-model:selected="tableSelectedLeads"
-          :row-class="(row) => row.leapCustomerId && row.leapJobId ? 'leap-row' : ''"
+          :row-class="(row: Lead) => row.leapCustomerId && row.leapJobId ? 'leap-row' : 'leap-row-sync'"
           @row-click="onTableRowClick"
         >
-          <!-- Custom cell rendering for status and temp -->
+          <!-- Sales rep -->
+          <template v-slot:body-cell-salesRepId="props">
+            <q-td :props="props">
+              <span v-if="props.value" class="text-caption">
+                {{ repNameMap.get(props.value) || `#${props.value}` }}
+              </span>
+              <span v-else class="text-grey-4">—</span>
+            </q-td>
+          </template>
+
+          <!-- Appointment -->
+          <template v-slot:body-cell-appointment="props">
+            <q-td :props="props">
+              <div v-if="props.row.wantsAppointment && props.row.appointmentDetails?.preferredDate"
+                   class="text-caption text-teal-8">
+                <q-icon name="event_available" size="xs" class="q-mr-xs" />
+                {{ formatTableDate(props.row.appointmentDetails.preferredDate) }}
+                <span v-if="props.row.appointmentDetails.preferredTime" class="text-grey-6">
+                  &nbsp;{{ props.row.appointmentDetails.preferredTime }}
+                </span>
+              </div>
+              <span v-else class="text-grey-4">—</span>
+            </q-td>
+          </template>
+
+          <!-- Notes preview -->
+          <template v-slot:body-cell-notes="props">
+            <q-td :props="props">
+              <span v-if="props.value" class="text-caption text-grey-7">
+                {{ props.value.length > 40 ? props.value.slice(0, 40) + '…' : props.value }}
+              </span>
+              <span v-else class="text-grey-4">—</span>
+            </q-td>
+          </template>
+
+          <!-- LEAP status chip -->
           <template v-slot:body-cell-syncStatus="props">
             <q-td :props="props">
               <q-chip
@@ -1010,42 +1045,56 @@ const columns = [
   {
     name: 'fullName',
     required: true,
-    label: 'Full Name',
-    align: 'left',
+    label: 'Name',
+    align: 'left' as const,
     field: 'fullName',
     sortable: true,
   },
   {
-    name: 'email',
-    align: 'left',
-    label: 'Email',
-    field: 'email',
-    sortable: true,
-  },
-  {
     name: 'phone',
-    align: 'left',
+    align: 'left' as const,
     label: 'Phone',
     field: 'phone',
     sortable: true,
   },
   {
     name: 'eventName',
-    align: 'left',
+    align: 'left' as const,
     label: 'Event',
     field: 'eventName',
     sortable: true,
   },
   {
+    name: 'salesRepId',
+    align: 'left' as const,
+    label: 'Rep',
+    field: 'salesRepId',
+    sortable: false,
+  },
+  {
+    name: 'appointment',
+    align: 'left' as const,
+    label: 'Appointment',
+    field: (row: Lead) => row.appointmentDetails?.preferredDate || '',
+    sortable: true,
+  },
+  {
+    name: 'notes',
+    align: 'left' as const,
+    label: 'Notes',
+    field: 'notes',
+    sortable: false,
+  },
+  {
     name: 'syncStatus',
-    align: 'center',
-    label: 'LEAP Status',
+    align: 'center' as const,
+    label: 'LEAP',
     field: 'syncStatus',
     sortable: true,
   },
   {
     name: 'tempRating',
-    align: 'center',
+    align: 'center' as const,
     label: 'Temp',
     field: 'tempRating',
     sortable: true,
@@ -1053,7 +1102,7 @@ const columns = [
   },
   {
     name: 'createdAt',
-    align: 'center',
+    align: 'center' as const,
     label: 'Created',
     field: 'createdAt',
     sortable: true,
@@ -1061,8 +1110,8 @@ const columns = [
   },
   {
     name: 'actions',
-    align: 'center',
-    label: 'Actions',
+    align: 'center' as const,
+    label: '',
     field: 'actions',
   },
 ];
@@ -1167,6 +1216,12 @@ async function fetchLeads() {
   } finally {
     loading.value = false;
   }
+}
+
+function formatTableDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y!, (m! - 1), d!, 12, 0, 0);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function getSyncStatusColor(status: string) {
@@ -1547,7 +1602,6 @@ async function onCsvImportCompleted(results: any) {
 
 function onTableRowClick(_evt: Event, row: Lead) {
   if (batchMode.value) {
-    // In batch mode, row clicks select/deselect — don't open LEAP
     toggleLeadSelection(row._id);
     return;
   }
@@ -1559,6 +1613,9 @@ function onTableRowClick(_evt: Event, row: Lead) {
       '_blank',
       'noopener,noreferrer'
     );
+  } else {
+    // Not yet synced or sync failed — trigger a fresh sync attempt
+    void resyncLead(row._id);
   }
 }
 
@@ -1582,5 +1639,11 @@ async function copyTableLead(lead: Lead) {
 }
 :deep(.leap-row:hover td) {
   background: rgba(103, 58, 183, 0.04);
+}
+:deep(.leap-row-sync) {
+  cursor: pointer;
+}
+:deep(.leap-row-sync:hover td) {
+  background: rgba(255, 152, 0, 0.05);
 }
 </style>
