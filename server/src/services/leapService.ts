@@ -2308,6 +2308,32 @@ export class LeapService {
 
         const result = await this.createProspect(prospectData);
 
+        // Follow-up: set referral fields on the new customer.
+        // The POST /prospects endpoint does not apply referred_by_type/referred_by_id/referred_by_note;
+        // those must be set via a separate PUT /customers/:id call.
+        const newCustomerId = result.data?.customer?.id || result.data?.customer_id;
+        if (newCustomerId && (leadData.referred_by_id || leadData.referred_by_note || leadData.eventName)) {
+          try {
+            const referralPatch: Record<string, any> = {};
+            if (leadData.referred_by_type) referralPatch.referred_by_type = leadData.referred_by_type;
+            if (leadData.referred_by_id)   referralPatch.referred_by_id   = leadData.referred_by_id;
+            const note = leadData.referred_by_note || leadData.eventName;
+            if (note) referralPatch.referred_by_note = note;
+
+            await this.updateCustomer(newCustomerId, referralPatch as any);
+            logger.info('Referral fields applied to new customer via follow-up update', {
+              customerId: newCustomerId,
+              referralPatch,
+            });
+          } catch (refErr: any) {
+            // Non-fatal — prospect was created, referral just won't show correctly
+            logger.warn('Failed to apply referral fields to new customer', {
+              customerId: newCustomerId,
+              error: refErr.message,
+            });
+          }
+        }
+
         // Try to update the job name with the auto-generated job ID
         try {
         // Log the full LEAP response structure to understand the data format
