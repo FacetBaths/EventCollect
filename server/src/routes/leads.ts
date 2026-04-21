@@ -766,20 +766,27 @@ router.post("/", async (req, res) => {
             // user_id drives which staff member's calendar this appears on
             const assignedUserId = newLead.salesRepId || newLead.callCenterRepId || undefined;
 
-            const leapAppointmentData = {
+            const leapAppointmentData: any = {
               title: `Estimate - ${newLead.fullName}`,
               description: newLead.appointmentDetails.notes
                 || `Appointment request from ${newLead.eventName || 'event'}`,
               start_date_time: startDT,
               end_date_time: endDT,
-              customer_id: customerId,
-              ...(assignedUserId ? { user_id: assignedUserId, attendees_ids: [assignedUserId] } : {}),
+              // customer_id and job_ids must be integers
+              customer_id: parseInt(String(customerId), 10),
+              // job_ids links the calendar entry to the LEAP job record
+              ...(jobId ? { job_ids: [parseInt(String(jobId), 10)] } : {}),
+              ...(assignedUserId ? {
+                user_id: assignedUserId,
+                attendees_ids: [assignedUserId],  // correct field name per LEAP API docs
+              } : {}),
             };
 
             const leapAppointmentResult = await leapService.createAppointment(leapAppointmentData);
 
-            if (leapAppointmentResult.success && leapAppointmentResult.data?.id) {
-              newLead.leapAppointmentId = leapAppointmentResult.data.id.toString();
+            const apptId = leapAppointmentResult.data?.id;
+            if (leapAppointmentResult.success && apptId) {
+              newLead.leapAppointmentId = String(apptId);
               logger.info("LEAP appointment created successfully", {
                 leadId: newLead._id,
                 leapAppointmentId: newLead.leapAppointmentId,

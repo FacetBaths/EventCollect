@@ -57,16 +57,19 @@ interface LeapJob {
   updated_at?: string;
 }
 
+// Matches the LEAP /appointments API (JSON, application/json)
 interface LeapAppointment {
-  id?: string | number;
-  title?: string;
+  id?: number;
+  title: string;               // REQUIRED
+  start_date_time: string;     // REQUIRED  "Y-m-d H:i:s"
+  end_date_time: string;       // REQUIRED  "Y-m-d H:i:s"
   description?: string;
-  start_date_time: string;   // "YYYY-MM-DD HH:MM:SS"
-  end_date_time?: string;    // "YYYY-MM-DD HH:MM:SS"
-  customer_id?: string | number;
-  user_id?: string | number;          // Assigns to a staff member → appears on their calendar
-  attendees_ids?: (string | number)[]; // Additional attendees
+  customer_id?: number;        // integer; required when job_ids are provided
+  job_ids?: number[];          // links appointment to the LEAP job (shows on job calendar)
+  user_id?: number;            // integer; assigns to a user's staff calendar
+  attendees_ids?: number[];    // correct field name per API docs (not attendees_ids[] / attendees[])
   location?: string;
+  location_type?: 'job' | 'customer' | 'other' | 'company';
   full_day?: 0 | 1;
 }
 
@@ -299,11 +302,15 @@ export class LeapService {
 
   /**
    * Create a new appointment in LEAP CRM.
-   * Fields per the LEAP Appointment API:
-   *   start_date_time, end_date_time  – "YYYY-MM-DD HH:MM:SS"
-   *   customer_id                     – associates with the customer record
-   *   user_id / attendees_ids         – assigns to staff → appears on their calendar
-   *   title, description              – display info
+   *
+   * API accepts JSON (application/json). Per the docs and confirmed response schema:
+   *   title            – REQUIRED string
+   *   start_date_time  – REQUIRED "Y-m-d H:i:s"
+   *   end_date_time    – REQUIRED "Y-m-d H:i:s"
+   *   customer_id      – integer; required when job_ids are provided
+   *   job_ids          – integer[]; links to the LEAP job → shows on job/staff calendar
+   *   user_id          – integer; assigns to a user's calendar
+   *   attendees_ids    – integer[]; additional attendees (field name confirmed from API response)
    */
   async createAppointment(
     appointmentData: Partial<LeapAppointment>,
@@ -311,29 +318,58 @@ export class LeapService {
     try {
       logger.info("Creating appointment in LEAP CRM", { appointmentData });
 
+      if (!appointmentData.title) {
+        throw new Error("title is required for LEAP appointment creation");
+      }
       if (!appointmentData.start_date_time) {
         throw new Error("start_date_time is required for LEAP appointment creation");
       }
-      if (!appointmentData.customer_id) {
-        throw new Error("customer_id is required for LEAP appointment creation");
+      if (!appointmentData.end_date_time) {
+        throw new Error("end_date_time is required for LEAP appointment creation");
       }
 
-      const response: AxiosResponse = await this.apiClient.post(
-        "/appointments",
-        appointmentData,
-      );
+      // Build JSON payload with integer IDs as required by the API
+      const toInt = (v: any) => parseInt(String(v), 10);
+      const payload: Record<string, any> = {
+        title:            appointmentData.title,
+        start_date_time:  appointmentData.start_date_time,
+        end_date_time:    appointmentData.end_date_time,
+        full_day:         0,
+      };
+      if (appointmentData.customer_id != null) {
+        payload.customer_id = toInt(appointmentData.customer_id);
+      }
+      if (appointmentData.job_ids?.length) {
+        payload.job_ids = appointmentData.job_ids.map(toInt);
+      }
+      if (appointmentData.user_id != null) {
+        payload.user_id = toInt(appointmentData.user_id);
+      }
+      if (appointmentData.attendees_ids?.length) {
+        payload.attendees_ids = appointmentData.attendees_ids.map(toInt);
+      }
+      if (appointmentData.description)     payload.description    = appointmentData.description;
+      if (appointmentData.location)         payload.location       = appointmentData.location;
+      if (appointmentData.location_type)    payload.location_type  = appointmentData.location_type;
 
+      logger.info("LEAP appointment payload", { payload });
+
+      const response: AxiosResponse = await this.apiClient.post("/appointments", payload);
+
+      // API returns { message, appointment, status } — normalise to our shape
+      const appt = response.data.appointment || response.data.data || response.data;
       logger.info("Appointment created successfully in LEAP CRM", {
-        appointmentId: response.data.data?.id,
-        customerId: appointmentData.customer_id,
-        userId: appointmentData.user_id,
+        appointmentId: appt?.id,
+        customerId: payload.customer_id,
+        jobIds: payload.job_ids,
+        userId: payload.user_id,
       });
 
       return {
         success: true,
-        data: response.data.data || response.data,
+        data: appt,
         status: response.status,
-        message: "Appointment created successfully in LEAP CRM",
+        message: response.data.message || "Appointment created successfully in LEAP CRM",
       };
     } catch (error: any) {
       logger.error("Failed to create appointment in LEAP CRM", {
