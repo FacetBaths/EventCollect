@@ -304,6 +304,8 @@
           :pagination="{ rowsPerPage: 20 }"
           :selection="batchMode ? 'multiple' : 'none'"
           v-model:selected="tableSelectedLeads"
+          :row-class="(row) => row.leapCustomerId && row.leapJobId ? 'leap-row' : ''"
+          @row-click="onTableRowClick"
         >
           <!-- Custom cell rendering for status and temp -->
           <template v-slot:body-cell-syncStatus="props">
@@ -332,7 +334,7 @@
           
           <!-- Actions column -->
           <template v-slot:body-cell-actions="props">
-            <q-td :props="props">
+            <q-td :props="props" @click.stop>
               <div class="q-gutter-xs">
                 <q-btn flat icon="edit" @click="editLead(props.row)" color="primary" size="sm">
                   <q-tooltip>Edit Lead</q-tooltip>
@@ -1543,6 +1545,23 @@ async function onCsvImportCompleted(results: any) {
   }
 }
 
+function onTableRowClick(_evt: Event, row: Lead) {
+  if (batchMode.value) {
+    // In batch mode, row clicks select/deselect — don't open LEAP
+    toggleLeadSelection(row._id);
+    return;
+  }
+  const cid = row.leapCustomerId;
+  const jid = row.leapJobId;
+  if (cid && jid) {
+    window.open(
+      `https://www.jobprogress.com/app/#/customer-jobs/${cid}/job/${jid}/overview`,
+      '_blank',
+      'noopener,noreferrer'
+    );
+  }
+}
+
 // Copy lead functionality for table view
 async function copyTableLead(lead: Lead) {
   copyingLeadIds.value.push(lead._id);
@@ -1555,3 +1574,13 @@ async function copyTableLead(lead: Lead) {
   }
 }
 </script>
+
+<style scoped>
+/* Rows with a LEAP deep-link get a pointer cursor to signal they're clickable */
+:deep(.leap-row) {
+  cursor: pointer;
+}
+:deep(.leap-row:hover td) {
+  background: rgba(103, 58, 183, 0.04);
+}
+</style>

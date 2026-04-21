@@ -1,6 +1,11 @@
 
 <template>
-  <q-card class="lead-card q-mb-md" flat bordered>
+  <q-card
+    class="lead-card q-mb-md"
+    :class="{ 'lead-card--leap': leapUrl }"
+    flat bordered
+    @click="openInLeap"
+  >
     <q-card-section>
       <div class="row items-start no-wrap">
         <div class="col">
@@ -30,7 +35,17 @@
             <span class="text-caption text-weight-bold">{{ repInitials }}</span>
             <q-tooltip>{{ repName }}</q-tooltip>
           </q-avatar>
-          <q-btn flat round icon="more_vert" size="sm">
+          <!-- LEAP deep-link indicator: visible when the lead is synced -->
+          <q-icon
+            v-if="leapUrl"
+            name="open_in_new"
+            size="14px"
+            color="purple-4"
+            class="leap-link-icon"
+          >
+            <q-tooltip>Open in JobProgress</q-tooltip>
+          </q-icon>
+          <q-btn flat round icon="more_vert" size="sm" @click.stop>
             <q-menu v-model="actionMenuOpen">
               <q-list style="min-width: 150px">
                 <q-item clickable @click="openEdit">
@@ -98,7 +113,7 @@
       </div>
     </q-card-section>
 
-    <q-card-actions class="bg-grey-2 q-pa-sm">
+    <q-card-actions class="bg-grey-2 q-pa-sm" @click.stop>
       <q-btn flat dense color="primary" icon="edit" @click="$emit('edit', lead)" size="sm">
         <q-tooltip>Edit</q-tooltip>
       </q-btn>
@@ -116,6 +131,20 @@
 <script setup lang="ts">
 import { defineProps, computed, ref } from 'vue';
 import { useCopyLead } from '../composables/useCopyLead';
+
+// JobProgress deep-link — only available once the lead is synced and has both IDs
+const leapUrl = computed(() => {
+  const cid = props.lead.leapCustomerId;
+  const jid = props.lead.leapJobId;
+  if (!cid || !jid) return null;
+  return `https://www.jobprogress.com/app/#/customer-jobs/${cid}/job/${jid}/overview`;
+});
+
+function openInLeap() {
+  if (leapUrl.value) {
+    window.open(leapUrl.value, '_blank', 'noopener,noreferrer');
+  }
+}
 
 const props = defineProps({
   lead: {
@@ -255,11 +284,24 @@ async function copyLead() {
 
 <style scoped>
 .lead-card {
-  transition: box-shadow 0.3s;
+  transition: box-shadow 0.2s, border-color 0.2s;
 }
 
 .lead-card:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.lead-card--leap {
+  cursor: pointer;
+}
+
+.lead-card--leap:hover {
+  box-shadow: 0 4px 16px rgba(103, 58, 183, 0.18);
+  border-color: rgba(103, 58, 183, 0.35) !important;
+}
+
+.leap-link-icon {
+  opacity: 0.6;
 }
 
 .rep-avatar {
