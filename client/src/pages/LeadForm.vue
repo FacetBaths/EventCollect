@@ -223,7 +223,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { Notify } from 'quasar';
 import type { LeadFormData } from '../types/temp-types';
 import { apiService } from '../services/api';
@@ -279,6 +279,23 @@ const form = ref<LeadFormData>({
   referred_by_id: 8,
   referred_by_note: getEventName(), // Same as referredBy
   divisionId: 6496, // Default to Renovation division
+});
+
+// Keep referral/event fields in sync with the active event as it loads
+watch(
+  () => eventStore.getCurrentEvent,
+  (activeEvent) => {
+    if (activeEvent?.name) {
+      form.value.eventName = activeEvent.name;
+      form.value.referredBy = activeEvent.name;
+      form.value.referred_by_note = activeEvent.name;
+    }
+  }
+);
+
+onMounted(() => {
+  // Ensure we have the latest active event even if the polling hasn't fired yet
+  void eventStore.loadActiveEvent();
 });
 
 const loading = ref(false);

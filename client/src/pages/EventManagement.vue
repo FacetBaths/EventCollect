@@ -330,7 +330,17 @@ const saveEvent = async () => {
       if (!editingEventId.value) {
         throw new Error("No event selected for editing");
       }
-      response = await apiService.updateEvent(editingEventId.value, payload);
+      // If activating this event via the edit form, use the dedicated activate endpoint
+      // so that all other events are properly deactivated (the general update endpoint
+      // bypasses the Mongoose pre-save hook that enforces single-active invariant)
+      if (payload.isActive) {
+        await apiService.activateEvent(editingEventId.value);
+        // Now update the remaining non-activation fields (name, description)
+        const { isActive: _omit, ...nonActivationPayload } = payload;
+        response = await apiService.updateEvent(editingEventId.value, nonActivationPayload);
+      } else {
+        response = await apiService.updateEvent(editingEventId.value, payload);
+      }
     } else {
       response = await apiService.createEvent(payload);
     }

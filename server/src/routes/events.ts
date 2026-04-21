@@ -25,7 +25,7 @@ router.get("/", async (req, res) => {
 // GET /api/events/active - Get the currently active event
 router.get("/active", async (req, res) => {
   try {
-    const activeEvent = await Event.findOne({ isActive: true });
+    const activeEvent = await Event.findOne({ isActive: true }).sort({ updatedAt: -1 });
     
     if (!activeEvent) {
       return res.json({
@@ -102,7 +102,13 @@ router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
-    
+
+    // If activating this event, deactivate all others first to maintain single-active invariant
+    // (findByIdAndUpdate bypasses Mongoose pre-save hooks, so we enforce it manually here)
+    if (updateData.isActive === true) {
+      await Event.updateMany({ _id: { $ne: id } }, { isActive: false });
+    }
+
     const updatedEvent = await Event.findByIdAndUpdate(
       id,
       updateData,

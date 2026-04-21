@@ -18,6 +18,8 @@
           :loading="loadingUsers"
           flat
           :pagination="{ rowsPerPage: 20 }"
+          @row-click="(_evt, row) => openEdit(row)"
+          class="users-table"
         >
           <template v-slot:body-cell-role="props">
             <q-td :props="props">
@@ -55,11 +57,10 @@
             </q-td>
           </template>
 
-          <template v-slot:body-cell-actions="props">
+          <!-- Clickable name cell — opens edit dialog -->
+          <template v-slot:body-cell-name="props">
             <q-td :props="props">
-              <q-btn flat icon="edit" color="primary" size="sm" @click="openEdit(props.row)">
-                <q-tooltip>Edit</q-tooltip>
-              </q-btn>
+              <span class="text-primary cursor-pointer name-link">{{ props.value }}</span>
             </q-td>
           </template>
         </q-table>
@@ -200,7 +201,6 @@ const columns = [
   { name: 'leapRepId', label: 'Sales Rep', field: 'leapRepId', align: 'left' as const },
   { name: 'leapCallCenterRepId', label: 'CC Rep', field: 'leapCallCenterRepId', align: 'left' as const },
   { name: 'isActive', label: 'Active', field: 'isActive', align: 'center' as const },
-  { name: 'actions', label: '', field: 'actions', align: 'center' as const },
 ];
 
 const repNameMap = computed(() => {
