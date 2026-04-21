@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { appointmentService } from '../services/appointmentService';
+import { Lead } from '../models/Lead';
 import { logger } from '../utils/logger';
 import type { AuthRequest } from '../middleware/auth';
 
@@ -123,11 +124,39 @@ router.get('/', async (req: Request, res: Response) => {
 
     const appointments = await appointmentService.getAppointments(start, end, filters);
 
+    // Enrich appointments with LEAP IDs from the referenced Lead so the
+    // client can deep-link directly into JobProgress without an extra round-trip.
+    const leadIds = [...new Set(
+      appointments.map((a: any) => a.leadId).filter(Boolean)
+    )];
+    let leapMap: Record<string, { leapCustomerId?: string; leapJobId?: string }> = {};
+    if (leadIds.length > 0) {
+      const leads = await Lead.find(
+        { _id: { $in: leadIds } },
+        { _id: 1, leapCustomerId: 1, leapJobId: 1 }
+      ).lean();
+      leads.forEach((l: any) => {
+        leapMap[l._id.toString()] = {
+          leapCustomerId: l.leapCustomerId || undefined,
+          leapJobId: l.leapJobId || undefined,
+        };
+      });
+    }
+
+    const enriched = appointments.map((a: any) => {
+      const plain = typeof a.toObject === 'function' ? a.toObject() : { ...a };
+      if (plain.leadId && leapMap[plain.leadId]) {
+        plain.leapCustomerId = leapMap[plain.leadId].leapCustomerId;
+        plain.leapJobId      = leapMap[plain.leadId].leapJobId;
+      }
+      return plain;
+    });
+
     res.json({
       success: true,
       message: 'Appointments retrieved successfully',
-      data: appointments,
-      count: appointments.length,
+      data: enriched,
+      count: enriched.length,
       dateRange: { startDate: start, endDate: end }
     });
   } catch (error: any) {

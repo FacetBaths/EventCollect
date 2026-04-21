@@ -59,33 +59,39 @@
                   </q-card-section>
                   <q-separator />
                   <q-list dense>
-                    <q-item 
-                      v-for="slot in day.timeSlots" 
-                      :key="slot.time" 
+                    <q-item
+                      v-for="slot in day.timeSlots"
+                      :key="slot.time"
                       class="q-pa-xs time-slot"
-                      :class="getTimeSlotClass(slot)"
+                      :class="[
+                        getTimeSlotClass(slot),
+                        slot.appointments.length > 0 ? 'time-slot--booked' : ''
+                      ]"
+                      clickable
+                      v-ripple="slot.appointments.length > 0"
+                      @click="slot.appointments.length > 0 && openSlotDialog(day.date, slot)"
                     >
                       <q-item-section>
                         <q-item-label class="text-weight-medium text-xs">
                           {{ slot.time }}
                         </q-item-label>
-                        <q-item-label 
-                          v-if="slot.appointments.length > 0" 
-                          caption 
+                        <q-item-label
+                          v-if="slot.appointments.length > 0"
+                          caption
                           class="text-xs"
                         >
-                          {{ slot.appointments.length }}/2 booked
+                          {{ slot.appointments.map((a: any) => a.customerName).join(', ') }}
                         </q-item-label>
-                        <q-item-label 
+                        <q-item-label
                           v-else
-                          caption 
+                          caption
                           class="text-xs text-positive"
                         >
                           Available
                         </q-item-label>
                       </q-item-section>
                       <q-item-section side>
-                        <q-badge 
+                        <q-badge
                           :color="getSlotBadgeColor(slot)"
                           :label="getSlotBadgeLabel(slot)"
                           class="text-xs"
@@ -100,17 +106,111 @@
         </q-card>
       </div>
     </div>
+    <!-- Slot Detail Dialog -->
+    <q-dialog v-model="slotDialog" :maximized="$q.screen.xs">
+      <q-card style="min-width: 360px; max-width: 640px; width: 95vw">
+        <q-card-section class="row items-center bg-primary text-white q-pb-sm">
+          <q-icon name="event" class="q-mr-sm" />
+          <div>
+            <div class="text-subtitle1 text-weight-bold">{{ slotDialogTitle }}</div>
+            <div class="text-caption">{{ slotDialogTime }}</div>
+          </div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup color="white" />
+        </q-card-section>
+
+        <q-separator />
+
+        <q-scroll-area style="height: 400px; max-height: 60vh">
+          <q-list separator>
+            <q-item
+              v-for="appt in slotDialogAppointments"
+              :key="appt.id"
+              class="q-py-md"
+              :class="appt.leapCustomerId && appt.leapJobId ? 'appt-item--leap' : 'appt-item--sync'"
+              clickable
+              @click="openApptInLeap(appt)"
+            >
+              <q-item-section avatar>
+                <q-avatar
+                  :color="appt.leapCustomerId && appt.leapJobId ? 'purple-7' : 'orange-7'"
+                  text-color="white"
+                  size="36px"
+                >
+                  <q-icon :name="appt.leapCustomerId && appt.leapJobId ? 'open_in_new' : 'cloud_sync'" size="sm" />
+                </q-avatar>
+              </q-item-section>
+
+              <q-item-section>
+                <q-item-label class="text-weight-bold">{{ appt.customerName }}</q-item-label>
+                <q-item-label caption>
+                  <q-icon name="phone" size="xs" class="q-mr-xs" />{{ appt.customerPhone }}
+                  <span class="q-ml-sm">
+                    <q-icon name="mail" size="xs" class="q-mr-xs" />{{ appt.customerEmail }}
+                  </span>
+                </q-item-label>
+                <q-item-label v-if="appt.servicesOfInterest?.length" caption class="text-primary">
+                  <q-icon name="handyman" size="xs" class="q-mr-xs" />{{ appt.servicesOfInterest.join(', ') }}
+                </q-item-label>
+                <q-item-label v-if="appt.eventName" caption class="text-grey-7">
+                  <q-icon name="event" size="xs" class="q-mr-xs" />{{ appt.eventName }}
+                </q-item-label>
+                <q-item-label v-if="appt.description" caption class="text-grey-6">
+                  <q-icon name="note" size="xs" class="q-mr-xs" />{{ appt.description }}
+                </q-item-label>
+              </q-item-section>
+
+              <q-item-section side>
+                <q-badge
+                  v-if="appt.leapCustomerId && appt.leapJobId"
+                  color="purple-7"
+                  label="Open LEAP"
+                />
+                <q-badge
+                  v-else
+                  color="orange-7"
+                  label="Sync"
+                />
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-scroll-area>
+
+        <q-card-actions align="right" class="q-pa-sm">
+          <q-btn flat label="Close" color="grey" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
+import { useQuasar } from 'quasar';
 import { apiService } from '../services/api';
 import { Notify } from 'quasar';
 
 interface TimeSlot {
   time: string;
   appointments: any[];
+}
+
+interface CalendarEvent {
+  id: string;
+  date: string;
+  time: string;
+  timeSlot: string;
+  title: string;
+  description: string;
+  status: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  servicesOfInterest: string[];
+  eventName: string;
+  leadId?: string;
+  leapCustomerId?: string;
+  leapJobId?: string;
 }
 
 interface DaySchedule {
@@ -125,10 +225,44 @@ interface WeekSchedule {
   days: DaySchedule[];
 }
 
+const $q = useQuasar();
 const loading = ref(true);
 const error = ref<string | null>(null);
-const calendarEvents = ref<any[]>([]);
+const calendarEvents = ref<CalendarEvent[]>([]);
 const selectedDate = ref(new Date().toISOString().substring(0, 10));
+
+// Slot detail dialog
+const slotDialog = ref(false);
+const slotDialogTitle = ref('');
+const slotDialogTime = ref('');
+const slotDialogAppointments = ref<CalendarEvent[]>([]);
+
+function openSlotDialog(date: string, slot: TimeSlot) {
+  const [y, m, d] = date.split('-').map(Number);
+  const dateObj = new Date(y!, (m! - 1), d!, 12, 0, 0);
+  slotDialogTitle.value = dateObj.toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+  });
+  slotDialogTime.value = slot.time;
+  slotDialogAppointments.value = slot.appointments as CalendarEvent[];
+  slotDialog.value = true;
+}
+
+function openApptInLeap(appt: CalendarEvent) {
+  if (appt.leapCustomerId && appt.leapJobId) {
+    window.open(
+      `https://www.jobprogress.com/app/#/customer-jobs/${appt.leapCustomerId}/job/${appt.leapJobId}/overview`,
+      '_blank', 'noopener,noreferrer'
+    );
+  } else {
+    // Not yet synced — let user know they need to resync from the dashboard
+    Notify.create({
+      type: 'warning',
+      message: `${appt.customerName} is not yet synced to LEAP. Open the Leads Dashboard and resync this lead.`,
+      timeout: 5000,
+    });
+  }
+}
 
 // Time slots for each day (3 slots per day)
 const timeSlots = [
@@ -206,20 +340,21 @@ async function fetchStaffAvailability() {
       if (Array.isArray(data)) {
         // Process MongoDB appointments - map to expected format
         calendarEvents.value = data.map((appointment: any, index: number) => ({
-          id: appointment._id || appointment.id || index,
+          id: appointment._id || appointment.id || String(index),
           date: appointment.date ? String(appointment.date).split('T')[0] : '',
-          time: appointment.timeSlot || '',  // MongoDB uses timeSlot field
+          time: appointment.timeSlot || '',
           timeSlot: appointment.timeSlot || '',
-          endTime: '', // Not used in our simple 3-slot system
           title: `${appointment.customerName} - ${appointment.servicesOfInterest?.join(', ') || 'Appointment'}`,
           description: appointment.notes || '',
           status: appointment.status || 'scheduled',
-          staffId: appointment.staffMemberId || '',
           customerName: appointment.customerName || '',
           customerEmail: appointment.customerEmail || '',
           customerPhone: appointment.customerPhone || '',
           servicesOfInterest: appointment.servicesOfInterest || [],
-          eventName: appointment.eventName || ''
+          eventName: appointment.eventName || '',
+          leadId: appointment.leadId || '',
+          leapCustomerId: appointment.leapCustomerId || '',
+          leapJobId: appointment.leapJobId || '',
         }));
       } else {
         calendarEvents.value = [];
@@ -400,6 +535,24 @@ onMounted(() => {
 
 .time-slot:hover {
   background-color: #f0f0f0;
+}
+
+.time-slot--booked {
+  cursor: pointer;
+}
+
+.appt-item--leap {
+  cursor: pointer;
+}
+.appt-item--leap:hover {
+  background: rgba(103, 58, 183, 0.06);
+}
+
+.appt-item--sync {
+  cursor: pointer;
+}
+.appt-item--sync:hover {
+  background: rgba(255, 152, 0, 0.06);
 }
 
 .text-xs {
