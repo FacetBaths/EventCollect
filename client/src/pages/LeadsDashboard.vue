@@ -3,46 +3,48 @@
     <div class="text-h4 text-primary text-center">Leads Dashboard</div>
     
     <!-- Action Controls -->
-    <div class="row items-center q-mb-sm q-gutter-md flex-wrap">
+    <div class="row items-center q-mb-sm q-gutter-xs flex-wrap">
       <q-toggle
         v-model="showAllEvents"
         label="Show All Events"
         color="primary"
+        dense
+        class="q-mr-xs"
       />
-      <q-btn 
-        label="Refresh" 
-        @click="fetchLeads" 
-        color="primary" 
+      <q-btn
+        flat dense no-caps
+        label="Refresh"
+        @click="fetchLeads"
+        color="primary"
         icon="refresh"
         :loading="loading"
       />
-      <q-btn 
-        label="Sync All Pending"
+      <q-btn
+        flat dense no-caps
+        label="Sync Pending"
         @click="syncAllpending"
         color="orange"
         icon="sync"
         :loading="syncingAll"
       />
-      <q-btn 
-        label="Import From CSV"
+      <q-btn
+        flat dense no-caps
+        label="Import CSV"
         @click="showCsvImport = true"
         color="secondary"
         icon="file_upload"
-        :loading="false"
-      >  
+      >
         <q-tooltip>Import Facebook leads from CSV file</q-tooltip>
       </q-btn>
       <q-btn
-        :label="batchMode ? 'Cancel Select' : 'Select'"
+        flat dense no-caps
+        :label="batchMode ? 'Cancel' : 'Select'"
         :color="batchMode ? 'grey' : 'purple'"
         icon="checklist"
         @click="toggleBatchMode"
-        :outline="!batchMode"
       />
       <q-space />
-      <div class="text-caption">
-        Showing {{ filteredLeads.length }} of {{ allLeads.length }} leads
-      </div>
+      <span class="text-caption text-grey-7">{{ filteredLeads.length }} / {{ allLeads.length }} leads</span>
     </div>
 
     <!-- Filter Row -->
@@ -51,13 +53,9 @@
         v-model="filterEvent"
         :options="eventOptions"
         label="Event"
-        clearable
-        dense
-        outlined
-        style="min-width: 180px"
-        class="filter-select"
-        emit-value
-        map-options
+        clearable dense outlined
+        style="min-width: 170px; max-width: 220px"
+        emit-value map-options
         :option-label="(v) => v"
         :option-value="(v) => v"
       >
@@ -67,39 +65,48 @@
       <q-btn-toggle
         v-model="filterAppointment"
         :options="APPOINTMENT_FILTER_OPTIONS"
-        dense
-        no-caps
-        rounded
-        unelevated
-        toggle-color="teal"
-        color="white"
-        text-color="teal-8"
+        dense no-caps
+        toggle-color="teal-7"
+        color="grey-2"
+        text-color="grey-8"
+        style="border: 1px solid #bdbdbd; border-radius: 4px"
       />
 
       <q-select
         v-model="filterSync"
         :options="SYNC_FILTER_OPTIONS"
-        label="LEAP Status"
-        clearable
-        dense
-        outlined
-        emit-value
-        map-options
-        style="min-width: 140px"
-        class="filter-select"
+        label="Status"
+        clearable dense outlined
+        emit-value map-options
+        style="min-width: 120px; max-width: 160px"
       >
         <template v-slot:prepend><q-icon name="cloud" size="xs" /></template>
       </q-select>
 
       <q-btn
         v-if="filterEvent || filterAppointment !== 'all' || filterSync"
-        flat
-        dense
+        flat dense no-caps
         icon="filter_alt_off"
-        color="grey"
-        label="Clear Filters"
+        color="grey-6"
+        label="Clear"
         @click="filterEvent = null; filterAppointment = 'all'; filterSync = null"
         size="sm"
+      />
+
+      <q-space />
+
+      <!-- Cards/Table toggle moved here, right-aligned -->
+      <q-btn-toggle
+        v-model="viewMode"
+        dense no-caps
+        toggle-color="primary"
+        color="white"
+        text-color="primary"
+        :options="[
+          {label: 'Cards', value: 'cards', icon: 'view_module'},
+          {label: 'Table', value: 'table', icon: 'table_chart'}
+        ]"
+        style="border: 1px solid #9c27b0; border-radius: 4px"
       />
     </div>
     
@@ -222,27 +229,10 @@
 
     <!-- Leads Grid -->
     <div class="q-mb-md">
-      <!-- Mobile View Toggle -->
-      <div class="row items-center q-mb-md">
-        <div v-if="batchMode" class="q-gutter-sm">
-          <q-btn flat dense label="Select All" color="purple" icon="select_all" @click="selectAllPage" />
-          <q-btn flat dense label="Deselect All" color="grey" icon="deselect" @click="selectedLeadIds = new Set()" />
-        </div>
-        <q-space />
-        <q-btn-toggle
-          v-model="viewMode"
-          spread
-          no-caps
-          rounded
-          unelevated
-          toggle-color="primary"
-          color="white"
-          text-color="primary"
-          :options="[
-            {label: 'Cards', value: 'cards', icon: 'view_module'},
-            {label: 'Table', value: 'table', icon: 'table_chart'}
-          ]"
-        />
+      <!-- Batch select/deselect helpers -->
+      <div v-if="batchMode" class="row q-gutter-sm q-mb-sm">
+        <q-btn flat dense no-caps label="Select All" color="purple" icon="select_all" @click="selectAllPage" />
+        <q-btn flat dense no-caps label="Deselect All" color="grey" icon="deselect" @click="selectedLeadIds = new Set()" />
       </div>
 
       <!-- Card View -->
