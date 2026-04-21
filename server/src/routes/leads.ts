@@ -10,6 +10,7 @@ import { leapService } from "../services/leapService";
 import { appointmentService } from "../services/appointmentService";
 import { logger } from "../utils/logger";
 import { parseFacebookCsv, ParsedLead } from "../utils/csvUtils";
+import type { AuthRequest } from "../middleware/auth";
 
 const router = express.Router();
 
@@ -562,6 +563,11 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const leadData: ILead = req.body;
+    // Capture authenticated user as lead creator
+    const authUser = (req as AuthRequest).user;
+    if (authUser) {
+      (leadData as any).createdBy = (authUser._id as any).toString();
+    }
     
     // Set eventName from active event if not provided
     if (!leadData.eventName) {
@@ -626,7 +632,7 @@ router.post("/", async (req, res) => {
           tradeIds: newLead.tradeIds,
           salesRepId: newLead.salesRepId,
           eventName: newLead.eventName,
-          createdBy: "lead-form"
+          createdBy: authUser ? (authUser._id as any).toString() : "lead-form"
         };
         
         // Use appointmentService to create appointment (handles availability checking)

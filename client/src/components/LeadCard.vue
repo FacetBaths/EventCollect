@@ -18,7 +18,18 @@
             <q-icon name="schedule" size="sm" class="q-mr-xs" />{{ formatDate(lead.createdAt) }}
           </div>
         </div>
-        <div class="col-auto">
+        <div class="col-auto row items-center q-gutter-xs">
+          <!-- Sales Rep Avatar -->
+          <q-avatar
+            v-if="repName"
+            :color="repAvatarColor"
+            text-color="white"
+            size="32px"
+            class="rep-avatar"
+          >
+            <span class="text-caption text-weight-bold">{{ repInitials }}</span>
+            <q-tooltip>{{ repName }}</q-tooltip>
+          </q-avatar>
           <q-btn flat round icon="more_vert" size="sm">
             <q-menu v-model="actionMenuOpen">
               <q-list style="min-width: 150px">
@@ -50,6 +61,22 @@
             </q-menu>
           </q-btn>
         </div>
+      </div>
+    </q-card-section>
+
+    <!-- Appointment Banner -->
+    <q-card-section
+      v-if="lead.wantsAppointment && lead.appointmentDetails?.preferredDate"
+      class="q-pt-none q-pb-xs q-px-md"
+    >
+      <div class="appt-banner row items-center no-wrap q-pa-sm q-gutter-xs">
+        <q-icon name="event_available" color="teal" size="sm" />
+        <span class="text-caption text-teal-9 text-weight-medium">
+          {{ formatAppointmentDate(lead.appointmentDetails.preferredDate) }}
+        </span>
+        <span v-if="lead.appointmentDetails?.preferredTime" class="text-caption text-teal-7">
+          &nbsp;&bull;&nbsp;{{ lead.appointmentDetails.preferredTime }}
+        </span>
       </div>
     </q-card-section>
 
@@ -95,8 +122,31 @@ const props = defineProps({
     type: Object as () => any,
     required: true,
   },
+  repName: {
+    type: String as () => string | null | undefined,
+    default: null,
+  },
 });
 const emit = defineEmits(['edit', 'resync', 'delete']);
+
+// Deterministic avatar color from rep name (cycles through 8 Quasar palette colors)
+const REP_COLORS = ['blue-8', 'purple-8', 'deep-orange-8', 'teal-8', 'indigo-8', 'green-8', 'brown-8', 'cyan-8'];
+const repAvatarColor = computed(() => {
+  if (!props.repName) return 'grey-6';
+  let hash = 0;
+  for (let i = 0; i < props.repName.length; i++) hash = (hash * 31 + props.repName.charCodeAt(i)) & 0xffff;
+  return REP_COLORS[hash % REP_COLORS.length];
+});
+
+const repInitials = computed(() => {
+  if (!props.repName) return '';
+  return props.repName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0]!.toUpperCase())
+    .join('');
+});
 
 // Copy functionality
 const { copyLeadToClipboard } = useCopyLead();
@@ -158,6 +208,18 @@ function formatDate(dateString: string): string {
     year: 'numeric'
   });
 }
+
+function formatAppointmentDate(dateString: string): string {
+  // Parse YYYY-MM-DD without UTC shift by using local noon
+  const [y, m, d] = dateString.split('-').map(Number);
+  const date = new Date(y!, (m! - 1), d!, 12, 0, 0);
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
 function closeMenuThen(action: () => void) {
   actionMenuOpen.value = false;
   // Use a small delay so the menu finishes closing before the action fires.
@@ -198,6 +260,17 @@ async function copyLead() {
 
 .lead-card:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.rep-avatar {
+  cursor: default;
+  font-size: 11px;
+}
+
+.appt-banner {
+  background: rgba(0, 150, 136, 0.08);
+  border-left: 3px solid #00968880;
+  border-radius: 4px;
 }
 </style>
 

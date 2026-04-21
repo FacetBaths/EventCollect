@@ -2,8 +2,8 @@
   <q-page class="q-pa-md">
     <div class="text-h4 text-primary text-center">Leads Dashboard</div>
     
-    <!-- Filter Controls -->
-    <div class="row items-center q-mb-md q-gutter-md">
+    <!-- Action Controls -->
+    <div class="row items-center q-mb-sm q-gutter-md flex-wrap">
       <q-toggle
         v-model="showAllEvents"
         label="Show All Events"
@@ -42,13 +42,65 @@
       <q-space />
       <div class="text-caption">
         Showing {{ filteredLeads.length }} of {{ allLeads.length }} leads
-        <span v-if="!showAllEvents && eventStore.getCurrentEvent" class="text-grey-6">
-          (filtered by: {{ eventStore.getCurrentEvent.name }})
-        </span>
-        <span v-else-if="!showAllEvents && !eventStore.getCurrentEvent" class="text-grey-6">
-          (no active event - showing all)
-        </span>
       </div>
+    </div>
+
+    <!-- Filter Row -->
+    <div class="row items-center q-mb-md q-gutter-sm flex-wrap">
+      <q-select
+        v-model="filterEvent"
+        :options="eventOptions"
+        label="Event"
+        clearable
+        dense
+        outlined
+        style="min-width: 180px"
+        class="filter-select"
+        emit-value
+        map-options
+        :option-label="(v) => v"
+        :option-value="(v) => v"
+      >
+        <template v-slot:prepend><q-icon name="event" size="xs" /></template>
+      </q-select>
+
+      <q-btn-toggle
+        v-model="filterAppointment"
+        :options="APPOINTMENT_FILTER_OPTIONS"
+        dense
+        no-caps
+        rounded
+        unelevated
+        toggle-color="teal"
+        color="white"
+        text-color="teal-8"
+      />
+
+      <q-select
+        v-model="filterSync"
+        :options="SYNC_FILTER_OPTIONS"
+        label="LEAP Status"
+        clearable
+        dense
+        outlined
+        emit-value
+        map-options
+        style="min-width: 140px"
+        class="filter-select"
+      >
+        <template v-slot:prepend><q-icon name="cloud" size="xs" /></template>
+      </q-select>
+
+      <q-btn
+        v-if="filterEvent || filterAppointment !== 'all' || filterSync"
+        flat
+        dense
+        icon="filter_alt_off"
+        color="grey"
+        label="Clear Filters"
+        @click="filterEvent = null; filterAppointment = 'all'; filterSync = null"
+        size="sm"
+      />
     </div>
     
     <!-- Batch Action Bar -->
@@ -230,8 +282,9 @@
             >
               <LeadCard 
                 :lead="lead"
+                :rep-name="lead.salesRepId ? (repNameMap.get(lead.salesRepId) || null) : null"
                 @edit="editLead"
-                  @resync="resyncLead"
+                @resync="resyncLead"
                 @delete="deleteLead"
               />
             </div>
@@ -848,7 +901,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { apiService } from '../services/api';
 import { Notify } from 'quasar';
 import LeadCard from '../components/LeadCard.vue';
@@ -906,6 +959,23 @@ const syncingAll = ref(false);
 const savingLead = ref(false);
 const resyncAfterSave = ref(false);
 const showAllEvents = ref(true); // Default to showing all events since we may not have an active event
+
+// Dashboard filters
+const filterEvent = ref<string | null>(null);
+const filterAppointment = ref<'all' | 'has' | 'none'>('all');
+const filterSync = ref<string | null>(null);
+
+const APPOINTMENT_FILTER_OPTIONS = [
+  { label: 'All', value: 'all' },
+  { label: 'Has Appointment', value: 'has' },
+  { label: 'No Appointment', value: 'none' },
+];
+const SYNC_FILTER_OPTIONS = [
+  { label: 'All', value: null },
+  { label: 'Pending', value: 'pending' },
+  { label: 'Synced', value: 'synced' },
+  { label: 'Error', value: 'error' },
+];
 const editLeadDialog = ref(false);
 const showCsvImport = ref(false);
 const selectedLead = ref<Lead | null>(null);
@@ -914,6 +984,13 @@ const eventOptions = ref<string[]>([]);
 
 // LEAP CRM data (names for dropdowns)
 const { salesRepOptions, divisionOptions, tradeOptions, workTypeOptions, loading: leapLoading } = useLeapData();
+
+// Map from LEAP rep ID → display name for LeadCard avatar
+const repNameMap = computed(() => {
+  const m = new Map<number, string>();
+  salesRepOptions.value.forEach(r => m.set(r.value, r.label));
+  return m;
+});
 
 // Copy functionality
 const { copyLeadToClipboard } = useCopyLead();
@@ -995,19 +1072,41 @@ const columns = [
   },
 ];
 
-// Computed property to filter leads by active event
+// Computed property to filter leads
 const filteredLeads = computed(() => {
-  if (showAllEvents.value) {
-    return allLeads.value;
+  let result = allLeads.value;
+
+  // Event store quick-filter
+  if (!showAllEvents.value) {
+    const currentEvent = eventStore.getCurrentEvent;
+    if (currentEvent) {
+      result = result.filter(l => l.eventName === currentEvent.name);
+    }
   }
-  
-  // Filter by current event from store if one is selected
-  const currentEvent = eventStore.getCurrentEvent;
-  if (!currentEvent) {
-    return allLeads.value; // Show all leads if no current event
+
+  // Dashboard event filter
+  if (filterEvent.value) {
+    result = result.filter(l => l.eventName === filterEvent.value);
   }
-  
-  return allLeads.value.filter(lead => lead.eventName === currentEvent.name);
+
+  // Appointment filter
+  if (filterAppointment.value === 'has') {
+    result = result.filter(l => l.wantsAppointment && !!l.appointmentDetails?.preferredDate);
+  } else if (filterAppointment.value === 'none') {
+    result = result.filter(l => !l.wantsAppointment || !l.appointmentDetails?.preferredDate);
+  }
+
+  // Sync status filter
+  if (filterSync.value) {
+    result = result.filter(l => l.syncStatus === filterSync.value);
+  }
+
+  return result;
+});
+
+// Reset to page 1 whenever any filter changes
+watch([filterEvent, filterAppointment, filterSync, showAllEvents], () => {
+  currentPage.value = 1;
 });
 
 // Computed property for pagination

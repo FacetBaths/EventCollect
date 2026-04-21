@@ -21,6 +21,8 @@ import configRoutes from './routes/config';
 import healthRoutes from './routes/health';
 import leapSyncRoutes from './routes/leap-sync';
 import appointmentRoutes from './routes/appointments';
+import authRoutes from './routes/auth';
+import { verifyToken } from './middleware/auth';
 
 // Load environment variables
 dotenv.config();
@@ -86,14 +88,18 @@ if (process.env.ENABLE_MORGAN_LOGGING === 'true') {
 }
 
 // API Routes
+// Public routes (no auth required)
 app.use('/api/health', healthRoutes);
-app.use('/api/leads', leadRoutes);
-app.use('/api/events', eventRoutes);
-app.use('/api/staff', staffRoutes);
-app.use('/api/services', serviceRoutes);
-app.use('/api/config', configRoutes);
-app.use('/api/leap-sync', leapSyncRoutes);
-app.use('/api/appointments', appointmentRoutes);
+app.use('/api/auth', authRoutes);
+
+// Protected routes (JWT required)
+app.use('/api/leads', verifyToken as any, leadRoutes);
+app.use('/api/events', verifyToken as any, eventRoutes);
+app.use('/api/staff', verifyToken as any, staffRoutes);
+app.use('/api/services', verifyToken as any, serviceRoutes);
+app.use('/api/config', verifyToken as any, configRoutes);
+app.use('/api/leap-sync', verifyToken as any, leapSyncRoutes);
+app.use('/api/appointments', verifyToken as any, appointmentRoutes);
 
 // Welcome route
 app.get('/', (req, res) => {

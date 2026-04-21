@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { appointmentService } from '../services/appointmentService';
 import { logger } from '../utils/logger';
+import type { AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -49,6 +50,8 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
+    // Use authenticated user as createdBy when available, fall back to request body value
+    const authUser = (req as AuthRequest).user;
     const appointmentData = {
       customerName,
       customerEmail,
@@ -65,7 +68,7 @@ router.post('/', async (req: Request, res: Response) => {
       leadId,
       leapProspectId,
       eventName,
-      createdBy
+      createdBy: authUser ? (authUser._id as any).toString() : (createdBy || 'unknown'),
     };
 
     const appointment = await appointmentService.createAppointment(appointmentData);

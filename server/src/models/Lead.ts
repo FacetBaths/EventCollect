@@ -38,6 +38,7 @@ export interface ILead extends Document {
   leapAppointmentId?: string; // Legacy - kept for backward compatibility
   syncStatus: "pending" | "synced" | "error";
   syncError?: string;
+  createdBy?: string; // User._id who created this lead (null for legacy/pre-auth leads)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -183,6 +184,10 @@ const leadSchema = new Schema<ILead>(
       default: "pending",
     },
     syncError: {
+      type: String,
+      default: null,
+    },
+    createdBy: {
       type: String,
       default: null,
     },

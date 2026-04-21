@@ -62,9 +62,40 @@
           :loading="resyncLoading"
           :disable="resyncLoading"
           size="sm"
+          class="q-mr-xs"
         >
           <q-tooltip>Resync LEAP Data</q-tooltip>
         </q-btn>
+
+        <!-- User avatar / account menu -->
+        <q-avatar
+          v-if="authStore.user"
+          :color="userAvatarColor"
+          text-color="white"
+          size="34px"
+          class="cursor-pointer user-avatar"
+        >
+          <span class="text-caption text-weight-bold">{{ userInitials }}</span>
+          <q-tooltip>{{ authStore.user.name }} ({{ authStore.user.role }})</q-tooltip>
+          <q-menu>
+            <q-list style="min-width: 200px">
+              <q-item-label header class="text-grey-7">
+                {{ authStore.user.name }}
+                <div class="text-caption text-grey-5">{{ authStore.user.email }}</div>
+              </q-item-label>
+              <q-separator />
+              <q-item clickable @click="showChangePassword = true">
+                <q-item-section avatar><q-icon name="lock" /></q-item-section>
+                <q-item-section>Change Password</q-item-section>
+              </q-item>
+              <q-separator />
+              <q-item clickable @click="handleLogout">
+                <q-item-section avatar><q-icon name="logout" color="negative" /></q-item-section>
+                <q-item-section class="text-negative">Logout</q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
+        </q-avatar>
       </q-toolbar>
 
       <!-- Row 2: active event -->
@@ -110,6 +141,24 @@
           </q-item-section>
         </q-item>
 
+        <!-- Admin Settings (admin only) -->
+        <q-item
+          v-if="authStore.isAdmin"
+          to="/admin"
+          clickable
+          v-ripple
+          class="q-my-xs"
+          @click="$q.screen.lt.md && (leftDrawerOpen = false)"
+        >
+          <q-item-section avatar>
+            <q-icon name="admin_panel_settings" color="orange" size="md" />
+          </q-item-section>
+          <q-item-section>
+            <q-item-label class="text-weight-medium text-body1 text-white">Admin Settings</q-item-label>
+            <q-item-label caption class="green">Users &amp; LEAP assignments</q-item-label>
+          </q-item-section>
+        </q-item>
+
         <q-separator class="q-my-md" />
 
         <!-- Stats card -->
@@ -132,6 +181,56 @@
       </q-list>
     </q-drawer>
 
+    <!-- Change Password Dialog -->
+    <q-dialog v-model="showChangePassword">
+      <q-card style="min-width: 320px">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6">Change Password</div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+        <q-card-section>
+          <q-input
+            v-model="cpCurrent"
+            label="Current Password"
+            :type="cpShowCurrent ? 'text' : 'password'"
+            outlined dense class="q-mb-sm"
+          >
+            <template v-slot:append>
+              <q-icon :name="cpShowCurrent ? 'visibility_off' : 'visibility'" class="cursor-pointer" @click="cpShowCurrent = !cpShowCurrent" />
+            </template>
+          </q-input>
+          <q-input
+            v-model="cpNew"
+            label="New Password"
+            :type="cpShowNew ? 'text' : 'password'"
+            outlined dense class="q-mb-sm"
+          >
+            <template v-slot:append>
+              <q-icon :name="cpShowNew ? 'visibility_off' : 'visibility'" class="cursor-pointer" @click="cpShowNew = !cpShowNew" />
+            </template>
+          </q-input>
+          <q-input
+            v-model="cpConfirm"
+            label="Confirm New Password"
+            :type="cpShowNew ? 'text' : 'password'"
+            outlined dense
+            :error="cpNew !== cpConfirm && cpConfirm.length > 0"
+            error-message="Passwords do not match"
+          />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" v-close-popup />
+          <q-btn
+            unelevated label="Save" color="primary"
+            :loading="cpLoading"
+            :disable="!cpCurrent || !cpNew || cpNew !== cpConfirm || cpNew.length < 6"
+            @click="submitChangePassword"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
     <q-page-container class="gradient-bg">
       <router-view />
     </q-page-container>
@@ -144,6 +243,8 @@ import EventStatsBar from '../components/EventStatsBar.vue';
 import { Notify } from 'quasar';
 import { apiService } from '../services/api';
 import { useEventStore } from '../stores/event-store';
+import { useAuthStore } from '../stores/auth-store';
+import { useRouter } from 'vue-router';
 import versionInfo from '../version.json';
 
 interface NavigationLink {
@@ -189,6 +290,30 @@ const navigationLinks: NavigationLink[] = [
 const leftDrawerOpen = ref(false);
 const resyncLoading = ref(false);
 const eventStore = useEventStore();
+const authStore = useAuthStore();
+const router = useRouter();
+
+// Change Password dialog state
+const showChangePassword = ref(false);
+const cpCurrent = ref('');
+const cpNew = ref('');
+const cpConfirm = ref('');
+const cpShowCurrent = ref(false);
+const cpShowNew = ref(false);
+const cpLoading = ref(false);
+
+// User avatar initials + deterministic color
+const USER_COLORS = ['blue-8', 'purple-8', 'deep-orange-8', 'teal-8', 'indigo-8', 'green-8'];
+const userInitials = computed(() => {
+  const name = authStore.user?.name || '';
+  return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join('');
+});
+const userAvatarColor = computed(() => {
+  const name = authStore.user?.name || '';
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
+  return USER_COLORS[hash % USER_COLORS.length];
+});
 
 // Access the current event from the store
 const currentEvent = computed(() => {
@@ -200,6 +325,32 @@ const currentEvent = computed(() => {
 
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value;
+}
+
+function handleLogout() {
+  authStore.logout();
+  router.replace({ name: 'login' });
+}
+
+async function submitChangePassword() {
+  if (!cpCurrent.value || !cpNew.value || cpNew.value !== cpConfirm.value) return;
+  cpLoading.value = true;
+  try {
+    await authStore.changePassword(cpCurrent.value, cpNew.value);
+    Notify.create({ type: 'positive', message: 'Password changed successfully', timeout: 3000 });
+    showChangePassword.value = false;
+    cpCurrent.value = '';
+    cpNew.value = '';
+    cpConfirm.value = '';
+  } catch (err: any) {
+    Notify.create({
+      type: 'negative',
+      message: err.response?.data?.error || 'Failed to change password',
+      timeout: 4000,
+    });
+  } finally {
+    cpLoading.value = false;
+  }
 }
 
 async function resyncLeapData() {
