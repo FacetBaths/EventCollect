@@ -567,6 +567,20 @@ router.post("/", async (req, res) => {
     const authUser = (req as AuthRequest).user;
     if (authUser) {
       (leadData as any).createdBy = (authUser._id as any).toString();
+
+      // Apply role-based rep defaults when the client didn't explicitly set them.
+      // BDC users: their leapCallCenterRepId is the call-center rep for LEAP.
+      // Standard users: their leapRepId is the default sales/estimator rep.
+      // Admin users: no forced defaults.
+      if (authUser.role === 'bdc' && (authUser as any).leapCallCenterRepId) {
+        if (!(leadData as any).callCenterRepId) {
+          (leadData as any).callCenterRepId = (authUser as any).leapCallCenterRepId;
+        }
+      } else if (authUser.role === 'standard' && (authUser as any).leapRepId) {
+        if (!(leadData as any).salesRepId) {
+          (leadData as any).salesRepId = (authUser as any).leapRepId;
+        }
+      }
     }
     
     // Set eventName from active event if not provided

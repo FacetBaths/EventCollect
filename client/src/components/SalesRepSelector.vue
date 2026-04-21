@@ -58,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useLeapData } from '../composables/useLeapData';
 
 // Props & Emits
@@ -93,9 +93,13 @@ function onSalesRepChange(salesRepId: number | null) {
   emit('salesRepChanged', salesRepId);
 }
 
-// Watch for prop changes
+// Keep local state in sync when parent drives the value (e.g. auth default pre-fill)
+watch(() => props.modelValue, (val) => {
+  selectedSalesRep.value = val ?? null;
+});
+
 onMounted(() => {
-  selectedSalesRep.value = props.modelValue;
+  selectedSalesRep.value = props.modelValue ?? null;
 });
 </script>
 

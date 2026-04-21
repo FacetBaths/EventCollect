@@ -231,9 +231,11 @@ import SimpleAppointmentPicker from '../components/SimpleAppointmentPicker.vue';
 import TradeSelector from '../components/TradeSelector.vue';
 import SalesRepSelector from '../components/SalesRepSelector.vue';
 import { useEventStore } from '../stores/event-store';
+import { useAuthStore } from '../stores/auth-store';
 import { useCopyLead } from '../composables/useCopyLead';
 
 const eventStore = useEventStore();
+const authStore = useAuthStore();
 
 // Helper function to get event name with date fallback
 function getEventName(): string {
@@ -296,6 +298,14 @@ watch(
 onMounted(() => {
   // Ensure we have the latest active event even if the polling hasn't fired yet
   void eventStore.loadActiveEvent();
+
+  // Pre-select the logged-in rep's LEAP ID as the default sales rep.
+  // Standard users get their own rep; admins and BDC users leave it blank
+  // (BDC call-center rep is applied server-side from the user record).
+  const authUser = authStore.user;
+  if (authUser?.role === 'standard' && authUser.leapRepId) {
+    selectedSalesRepId.value = authUser.leapRepId;
+  }
 });
 
 const loading = ref(false);
@@ -608,7 +618,10 @@ function resetForm() {
   // Reset other form state
   selectedTradeIds.value = [];
   selectedWorkTypeIds.value = [];
-  selectedSalesRepId.value = null;
+  // Re-apply the logged-in rep's default rather than clearing to null
+  const authUser = authStore.user;
+  selectedSalesRepId.value =
+    authUser?.role === 'standard' && authUser.leapRepId ? authUser.leapRepId : null;
   secondPersonName.value = '';
   tempRating.value = 5;
   leadSaved.value = false;
