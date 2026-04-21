@@ -1954,7 +1954,7 @@ export class LeapService {
     eventName: string;
     referredBy?: string; // Source/referrer (usually the event name)
     referred_by_type?: string; // LEAP CRM referral type (e.g., 'Event')
-    referred_by_id?: number; // LEAP CRM referral ID (e.g., 8 for Event)
+    referred_by_id?: number; // LEAP CRM referral ID (62517 = "Event" in this account)
     referred_by_note?: string; // LEAP CRM referral note (actual event name)
     appointmentDetails?: {
       preferredDate: string;
@@ -2051,7 +2051,7 @@ export class LeapService {
         rep_id: leadData.salesRepId || 88443, // Sales/estimator rep; default to BDC if no rep assigned
         division_id: leadData.divisionId || 6496, // Default to Renovation division
         call_center_rep_id: leadData.callCenterRepId || undefined, // BDC/call center rep (separate field)
-        referred_by_id: leadData.referred_by_id || 8, // Referral source ID (8 = Event in this account)
+        referred_by_id: leadData.referred_by_id || 62517, // 62517 = "Event" referral source ID in this LEAP account // Referral source ID (8 = Event in this account)
         referred_by_type: "referral",
         referred_by_note: leadData.referred_by_note || leadData.eventName, // Event name shown in LEAP
         is_commercial: 0, // Assume residential

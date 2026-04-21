@@ -1300,7 +1300,7 @@ async function batchApplyChanges() {
           patch.eventName = eventName;
           patch.referredBy = eventName;
           patch.referred_by_type = 'Event';
-          patch.referred_by_id = 8;
+          patch.referred_by_id = 62517; // 62517 = "Event" referral source ID
           patch.referred_by_note = eventName;
         }
         if (tempRating !== null) {
@@ -1390,7 +1390,7 @@ function editLead(lead: Lead) {
   }
   selectedLead.value.referredBy = selectedLead.value.eventName;
   selectedLead.value.referred_by_type = 'Event';
-  selectedLead.value.referred_by_id = 8;
+  selectedLead.value.referred_by_id = 62517; // 62517 = "Event" referral source ID
   selectedLead.value.referred_by_note = selectedLead.value.eventName;
   
   // Initialize appointment details if needed
@@ -1416,7 +1416,7 @@ async function saveLeadChanges() {
     leadToSave.eventName = normalizeText(leadToSave.eventName);
     leadToSave.referredBy = leadToSave.eventName;
     leadToSave.referred_by_type = 'Event';
-    leadToSave.referred_by_id = 8;
+    leadToSave.referred_by_id = 62517; // 62517 = "Event" referral source ID
     leadToSave.referred_by_note = leadToSave.eventName;
 
     const response = await apiService.updateLead(leadToSave._id, leadToSave);

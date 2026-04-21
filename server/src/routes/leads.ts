@@ -606,7 +606,7 @@ router.post("/", async (req, res) => {
     }
     leadData.referredBy = leadData.eventName || "";
     leadData.referred_by_type = "Event";
-    leadData.referred_by_id = 8;
+    leadData.referred_by_id = 62517; // ID for "Event" referral source in this LEAP account
     leadData.referred_by_note = leadData.eventName || "";
 
     const newLead = new Lead(leadData);
@@ -878,7 +878,7 @@ router.put("/:id", async (req, res) => {
     updateData.eventName = normalizedEventName;
     updateData.referredBy = normalizedEventName;
     updateData.referred_by_type = "Event";
-    updateData.referred_by_id = 8;
+    updateData.referred_by_id = 62517; // ID for "Event" referral source in this LEAP account
     updateData.referred_by_note = normalizedEventName;
     
     const updatedLead = await Lead.findByIdAndUpdate(leadId, updateData, { new: true });

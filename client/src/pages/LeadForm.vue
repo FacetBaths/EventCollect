@@ -278,7 +278,7 @@ const form = ref<LeadFormData>({
   eventName: getEventName(), // Use actual event name or date fallback
   referredBy: getEventName(), // Actual event name or date fallback
   referred_by_type: 'Event',
-  referred_by_id: 8,
+  referred_by_id: 62517, // 62517 = "Event" in this LEAP account
   referred_by_note: getEventName(), // Same as referredBy
   divisionId: 6496, // Default to Renovation division
 });
@@ -610,7 +610,7 @@ function resetForm() {
     eventName: getEventName(), // Use actual event name or date fallback
     referredBy: getEventName(), // Actual event name or date fallback
     referred_by_type: 'Event',
-    referred_by_id: 8,
+    referred_by_id: 62517, // 62517 = "Event" in this LEAP account
     referred_by_note: getEventName(), // Same as referredBy
     divisionId: 6496, // Default to Renovation division
   };
