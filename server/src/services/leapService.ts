@@ -1589,6 +1589,8 @@ export class LeapService {
     phones: { number: string; label: string }[];
     company_name?: string;
     rep_id?: number;
+    division_id?: number;
+    call_center_rep_id?: number;
     referred_by_type?: string;
     referred_by_id?: number;
     referred_by_note?: string;
@@ -1669,6 +1671,15 @@ export class LeapService {
       // Always send rep_id — use strict check to allow valid IDs (>0), never skip the field
       if (prospectData.rep_id != null && prospectData.rep_id !== 0) {
         formData.append('rep_id', prospectData.rep_id.toString());
+      }
+      // Division — must be sent for correct job routing in LEAP
+      if (prospectData.division_id != null && prospectData.division_id !== 0) {
+        formData.append('division_id', prospectData.division_id.toString());
+      }
+      // Call center rep — separate from the estimator/sales rep
+      if (prospectData.call_center_rep_id != null && prospectData.call_center_rep_id !== 0) {
+        formData.append('call_center_rep_id', prospectData.call_center_rep_id.toString());
+        formData.append('call_center_rep_type', 'user');
       }
       if (prospectData.referred_by_type) {
         formData.append('referred_by_type', 'referral'); // Always use 'referral' for LEAP compatibility
@@ -1998,12 +2009,13 @@ export class LeapService {
           }
         ],
         // company_name: leave blank for individual customers - don't use referral source
-        rep_id: leadData.salesRepId || leadData.callCenterRepId || 88443, // Default to BDC Rep
+        // rep_id is the estimator/sales rep; call_center_rep_id is the BDC rep — keep them separate
+        rep_id: leadData.salesRepId || 88443, // Sales/estimator rep; default to BDC if no rep assigned
         division_id: leadData.divisionId || 6496, // Default to Renovation division
-        referred_by_id: leadData.referred_by_id || 62514, // Use selected referral source ID (default Facebook)
-        referred_by_type: "referral", // LEAP expects 'referral' for the dropdown to work
-        referred_by_note: leadData.referred_by_note || leadData.eventName, // Use referral note
-        temp_id: Math.floor(Math.random() * 1000), // Generate a temp ID
+        call_center_rep_id: leadData.callCenterRepId || undefined, // BDC/call center rep (separate field)
+        referred_by_id: leadData.referred_by_id || 8, // Referral source ID (8 = Event in this account)
+        referred_by_type: "referral",
+        referred_by_note: leadData.referred_by_note || leadData.eventName, // Event name shown in LEAP
         is_commercial: 0, // Assume residential
         call_required: 0,
         customer_contacts: [
@@ -2096,7 +2108,7 @@ export class LeapService {
         // Update existing customer if customer ID is available
         if (leadData.leapCustomerId) {
           try {
-            const customerUpdateData = {
+            const customerUpdateData: Record<string, any> = {
               first_name: firstName,
               last_name: lastName,
               email: leadData.email,
@@ -2117,9 +2129,15 @@ export class LeapService {
                   country: "United States"
                 }
               ],
-              status: "active" as const
+              rep_id: leadData.salesRepId || 88443,
+              status: "active" as const,
               // company_name: leave blank for individual customers
             };
+            // Call center rep — separate field, not the same as rep_id
+            if (leadData.callCenterRepId) {
+              customerUpdateData.call_center_rep_id = leadData.callCenterRepId;
+              customerUpdateData.call_center_rep_type = 'user';
+            }
             
             await this.updateCustomer(leadData.leapCustomerId, customerUpdateData);
             logger.info("Customer updated successfully in LEAP CRM", {
@@ -2312,16 +2330,24 @@ export class LeapService {
         // The POST /prospects endpoint does not apply referred_by_type/referred_by_id/referred_by_note;
         // those must be set via a separate PUT /customers/:id call.
         const newCustomerId = result.data?.customer?.id || result.data?.customer_id;
-        if (newCustomerId && (leadData.referred_by_id || leadData.referred_by_note || leadData.eventName)) {
+        if (newCustomerId) {
           try {
             const referralPatch: Record<string, any> = {};
+            // Referral source
             if (leadData.referred_by_type) referralPatch.referred_by_type = leadData.referred_by_type;
             if (leadData.referred_by_id)   referralPatch.referred_by_id   = leadData.referred_by_id;
             const note = leadData.referred_by_note || leadData.eventName;
             if (note) referralPatch.referred_by_note = note;
+            // Division
+            if (leadData.divisionId) referralPatch.division_id = leadData.divisionId;
+            // Call center rep (separate from estimator/sales rep)
+            if (leadData.callCenterRepId) {
+              referralPatch.call_center_rep_id = leadData.callCenterRepId;
+              referralPatch.call_center_rep_type = 'user';
+            }
 
             await this.updateCustomer(newCustomerId, referralPatch as any);
-            logger.info('Referral fields applied to new customer via follow-up update', {
+            logger.info('Referral/division/call-center fields applied via follow-up customer update', {
               customerId: newCustomerId,
               referralPatch,
             });
