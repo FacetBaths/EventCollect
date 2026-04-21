@@ -12,11 +12,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
 import { connectDB } from '../src/config/database';
 import { User } from '../src/models/User';
-
-const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '10');
 
 interface SeedUser {
   name: string;
@@ -107,11 +104,11 @@ async function seed() {
       console.log(`  ⊙ skipped (exists): ${u.email}`);
       skipped++;
     } else {
-      const hashed = await bcrypt.hash(u.password, BCRYPT_ROUNDS);
+      // Pass plain text — the User model's pre-save hook hashes it
       await User.create({
         name: u.name,
         email: u.email,
-        password: hashed,
+        password: u.password,
         role: u.role,
         leapRepId: u.leapRepId,
         leapCallCenterRepId: u.leapCallCenterRepId,
