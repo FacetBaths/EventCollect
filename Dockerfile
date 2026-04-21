@@ -11,13 +11,13 @@ COPY server/package*.json ./
 COPY server/ ./
 
 # Install all dependencies (including dev deps for build)
-RUN npm ci
+RUN yarn install --frozen-lockfile || yarn install
 
 # Build the application
-RUN npm run build
+RUN yarn build
 
 # Remove dev dependencies for a leaner production image
-RUN npm prune --production
+RUN yarn install --production --ignore-scripts
 
 # Expose the default port (Railway overrides via PORT env var)
 EXPOSE 3001
