@@ -267,6 +267,13 @@ export const apiService = {
     return response.data;
   },
 
+  async deleteAppointment(id: string): Promise<ApiResponse<any>> {
+    const response = await api.delete(`/appointments/${id}`, {
+      params: { hard: true },
+    });
+    return response.data;
+  },
+
   async getAvailabilityForDate(date: string): Promise<ApiResponse<any>> {
     const response = await api.get(`/appointments/availability/${date}`);
     return response.data;

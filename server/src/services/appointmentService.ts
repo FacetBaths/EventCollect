@@ -184,6 +184,29 @@ export class AppointmentService {
   }
 
   /**
+   * Permanently delete a local appointment
+   */
+  async deleteAppointment(appointmentId: string): Promise<IAppointment | null> {
+    try {
+      logger.info('Deleting appointment', { appointmentId });
+
+      const deletedAppointment = await Appointment.findByIdAndDelete(appointmentId);
+
+      if (deletedAppointment) {
+        logger.info('Appointment deleted successfully', { appointmentId });
+      }
+
+      return deletedAppointment;
+    } catch (error: any) {
+      logger.error('Failed to delete appointment', {
+        appointmentId,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Get appointments within a date range
    */
   async getAppointments(
