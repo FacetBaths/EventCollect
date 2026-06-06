@@ -1105,12 +1105,21 @@ router.delete("/:id", async (req, res) => {
         error: "Lead not found",
       });
     }
+
+    const deletedAppointments = await Appointment.deleteMany({ leadId });
     
-    logger.info("Lead deleted successfully", { leadId, leadName: deletedLead.fullName });
+    logger.info("Lead deleted successfully", {
+      leadId,
+      leadName: deletedLead.fullName,
+      deletedAppointments: deletedAppointments.deletedCount || 0,
+    });
     res.json({ 
       success: true, 
-      message: `Lead "${deletedLead.fullName}" deleted successfully`,
-      data: deletedLead 
+      message: deletedAppointments.deletedCount
+        ? `Lead "${deletedLead.fullName}" and ${deletedAppointments.deletedCount} linked appointment(s) deleted successfully`
+        : `Lead "${deletedLead.fullName}" deleted successfully`,
+      data: deletedLead,
+      deletedAppointments: deletedAppointments.deletedCount || 0,
     });
   } catch (error: any) {
     logger.error("Error deleting lead", {

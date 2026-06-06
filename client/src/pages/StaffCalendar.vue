@@ -161,16 +161,39 @@
               </q-item-section>
 
               <q-item-section side>
-                <q-badge
-                  v-if="appt.leapCustomerId && appt.leapJobId"
-                  color="purple-7"
-                  label="Open LEAP"
-                />
-                <q-badge
-                  v-else
-                  color="orange-7"
-                  label="Sync"
-                />
+                <div class="row no-wrap q-gutter-xs items-center">
+                  <q-badge
+                    v-if="appt.leapCustomerId && appt.leapJobId"
+                    color="purple-7"
+                    label="Open LEAP"
+                  />
+                  <q-badge
+                    v-else
+                    color="orange-7"
+                    label="Sync"
+                  />
+                  <q-btn
+                    flat
+                    round
+                    dense
+                    icon="edit"
+                    color="primary"
+                    @click.stop="openEditAppointmentDialog(appt)"
+                  >
+                    <q-tooltip>Edit local appointment</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    flat
+                    round
+                    dense
+                    icon="delete"
+                    color="negative"
+                    :loading="deletingAppointmentIds.includes(appt.id)"
+                    @click.stop="confirmDeleteAppointment(appt)"
+                  >
+                    <q-tooltip>Delete local appointment</q-tooltip>
+                  </q-btn>
+                </div>
               </q-item-section>
             </q-item>
           </q-list>
@@ -178,6 +201,86 @@
 
         <q-card-actions align="right" class="q-pa-sm">
           <q-btn flat label="Close" color="grey" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <!-- Edit Appointment Dialog -->
+    <q-dialog v-model="editAppointmentDialog" persistent>
+      <q-card style="min-width: 360px; max-width: 520px; width: 95vw">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6">Edit Appointment</div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+
+        <q-card-section v-if="editingAppointment" class="q-gutter-md">
+          <q-banner rounded class="bg-blue-1 text-blue-10">
+            Changes here update EventCollect's local staff calendar only. If this appointment already exists in LEAP, update LEAP separately if needed.
+          </q-banner>
+
+          <div>
+            <div class="text-subtitle2">{{ editingAppointment.customerName }}</div>
+            <div class="text-caption text-grey-7">
+              {{ editingAppointment.customerPhone }} • {{ editingAppointment.customerEmail }}
+            </div>
+          </div>
+
+          <q-input
+            v-model="editAppointmentForm.date"
+            type="date"
+            label="Appointment Date"
+            outlined
+            dense
+          />
+
+          <q-select
+            v-model="editAppointmentForm.timeSlot"
+            :options="timeSlots"
+            label="Time Slot"
+            outlined
+            dense
+          />
+
+          <q-select
+            v-model="editAppointmentForm.status"
+            :options="statusOptions"
+            label="Status"
+            outlined
+            dense
+            emit-value
+            map-options
+          />
+
+          <q-input
+            v-model="editAppointmentForm.notes"
+            label="Notes"
+            type="textarea"
+            outlined
+            autogrow
+          />
+        </q-card-section>
+
+        <q-card-actions align="between" class="q-pa-md">
+          <q-btn
+            flat
+            color="negative"
+            label="Delete"
+            :loading="editingAppointment ? deletingAppointmentIds.includes(editingAppointment.id) : false"
+            @click="editingAppointment && confirmDeleteAppointment(editingAppointment)"
+          />
+          <div>
+            <q-btn flat label="Cancel" color="grey" v-close-popup />
+            <q-btn
+              unelevated
+              label="Save"
+              color="primary"
+              class="q-ml-sm"
+              :loading="savingAppointment"
+              :disable="!editAppointmentForm.date || !editAppointmentForm.timeSlot"
+              @click="saveAppointmentChanges"
+            />
+          </div>
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -208,6 +311,7 @@ interface CalendarEvent {
   customerPhone: string;
   servicesOfInterest: string[];
   eventName: string;
+  notes?: string;
   leadId?: string;
   leapCustomerId?: string;
   leapJobId?: string;
@@ -236,6 +340,24 @@ const slotDialog = ref(false);
 const slotDialogTitle = ref('');
 const slotDialogTime = ref('');
 const slotDialogAppointments = ref<CalendarEvent[]>([]);
+const editAppointmentDialog = ref(false);
+const editingAppointment = ref<CalendarEvent | null>(null);
+const savingAppointment = ref(false);
+const deletingAppointmentIds = ref<string[]>([]);
+const editAppointmentForm = ref({
+  date: '',
+  timeSlot: '',
+  status: 'scheduled',
+  notes: '',
+});
+
+const statusOptions = [
+  { label: 'Scheduled', value: 'scheduled' },
+  { label: 'Confirmed', value: 'confirmed' },
+  { label: 'Completed', value: 'completed' },
+  { label: 'Cancelled', value: 'cancelled' },
+  { label: 'No-show', value: 'no-show' },
+];
 
 function openSlotDialog(date: string, slot: TimeSlot) {
   const [y, m, d] = date.split('-').map(Number);
@@ -261,6 +383,100 @@ function openApptInLeap(appt: CalendarEvent) {
       message: `${appt.customerName} is not yet synced to LEAP. Open the Leads Dashboard and resync this lead.`,
       timeout: 5000,
     });
+  }
+}
+
+function openEditAppointmentDialog(appt: CalendarEvent) {
+  editingAppointment.value = appt;
+  editAppointmentForm.value = {
+    date: appt.date,
+    timeSlot: appt.timeSlot || appt.time,
+    status: appt.status || 'scheduled',
+    notes: appt.description || appt.notes || '',
+  };
+  editAppointmentDialog.value = true;
+}
+
+async function saveAppointmentChanges() {
+  if (!editingAppointment.value) return;
+
+  savingAppointment.value = true;
+  try {
+    const response = await apiService.updateAppointment(editingAppointment.value.id, {
+      date: editAppointmentForm.value.date,
+      timeSlot: editAppointmentForm.value.timeSlot,
+      status: editAppointmentForm.value.status,
+      notes: editAppointmentForm.value.notes,
+    });
+
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to update appointment');
+    }
+
+    Notify.create({
+      type: 'positive',
+      message: 'Appointment updated',
+      timeout: 3000,
+    });
+
+    editAppointmentDialog.value = false;
+    slotDialog.value = false;
+    await fetchStaffAvailability();
+  } catch (err: any) {
+    Notify.create({
+      type: 'negative',
+      message: err.response?.data?.error || err.message || 'Failed to update appointment',
+      timeout: 5000,
+    });
+  } finally {
+    savingAppointment.value = false;
+  }
+}
+
+function confirmDeleteAppointment(appt: CalendarEvent) {
+  $q.dialog({
+    title: 'Delete appointment?',
+    message: `Remove ${appt.customerName}'s ${appt.timeSlot || appt.time} appointment from the local staff calendar? This does not delete anything in LEAP.`,
+    cancel: true,
+    persistent: true,
+    color: 'negative',
+  }).onOk(() => {
+    void deleteAppointment(appt);
+  });
+}
+
+async function deleteAppointment(appt: CalendarEvent) {
+  deletingAppointmentIds.value.push(appt.id);
+  try {
+    const response = await apiService.deleteAppointment(appt.id);
+
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to delete appointment');
+    }
+
+    Notify.create({
+      type: 'positive',
+      message: 'Appointment deleted',
+      timeout: 3000,
+    });
+
+    calendarEvents.value = calendarEvents.value.filter(event => event.id !== appt.id);
+    slotDialogAppointments.value = slotDialogAppointments.value.filter(event => event.id !== appt.id);
+    if (slotDialogAppointments.value.length === 0) {
+      slotDialog.value = false;
+    }
+    if (editingAppointment.value?.id === appt.id) {
+      editAppointmentDialog.value = false;
+      editingAppointment.value = null;
+    }
+  } catch (err: any) {
+    Notify.create({
+      type: 'negative',
+      message: err.response?.data?.error || err.message || 'Failed to delete appointment',
+      timeout: 5000,
+    });
+  } finally {
+    deletingAppointmentIds.value = deletingAppointmentIds.value.filter(id => id !== appt.id);
   }
 }
 
@@ -352,6 +568,7 @@ async function fetchStaffAvailability() {
           customerPhone: appointment.customerPhone || '',
           servicesOfInterest: appointment.servicesOfInterest || [],
           eventName: appointment.eventName || '',
+          notes: appointment.notes || '',
           leadId: appointment.leadId || '',
           leapCustomerId: appointment.leapCustomerId || '',
           leapJobId: appointment.leapJobId || '',

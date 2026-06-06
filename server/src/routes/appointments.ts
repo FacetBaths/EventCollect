@@ -117,8 +117,14 @@ router.get('/', async (req: Request, res: Response) => {
       });
     }
 
-    const filters: any = {};
-    if (status) filters.status = status;
+    const filters: any = {
+      status: ['scheduled', 'confirmed'],
+    };
+    if (status) {
+      filters.status = Array.isArray(status)
+        ? status.map(String)
+        : String(status).split(',').map(s => s.trim()).filter(Boolean);
+    }
     if (staffMemberId) filters.staffMemberId = staffMemberId;
     if (customerEmail) filters.customerEmail = customerEmail;
 
@@ -255,20 +261,23 @@ router.put('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Cancel appointment
+// Cancel or delete appointment
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { cancelledBy } = req.body;
+    const { hard } = req.query;
+    const { cancelledBy } = req.body || {};
 
-    logger.info('Cancelling appointment via API', { 
+    logger.info(hard === 'true' ? 'Deleting appointment via API' : 'Cancelling appointment via API', {
       appointmentId: id,
       cancelledBy
     });
 
-    const cancelledAppointment = await appointmentService.cancelAppointment(id, cancelledBy);
+    const appointment = hard === 'true'
+      ? await appointmentService.deleteAppointment(id)
+      : await appointmentService.cancelAppointment(id, cancelledBy);
 
-    if (!cancelledAppointment) {
+    if (!appointment) {
       return res.status(404).json({
         success: false,
         error: 'Appointment not found'
@@ -277,11 +286,11 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      message: 'Appointment cancelled successfully',
-      data: cancelledAppointment
+      message: hard === 'true' ? 'Appointment deleted successfully' : 'Appointment cancelled successfully',
+      data: appointment
     });
   } catch (error: any) {
-    logger.error('Failed to cancel appointment via API', { 
+    logger.error('Failed to remove appointment via API', {
       appointmentId: req.params.id,
       error: error.message
     });
